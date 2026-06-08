@@ -1,8 +1,16 @@
 import math
+from enum import Enum, auto
+
 import pyray as rl
 
-from .maze import get_default_maze
+from .maze import Algorithm, get_default_maze, generate_maze
 from .player import Player
+
+
+class GameState(Enum):
+    MENU = auto()
+    PLAYING = auto()
+    WON = auto()
 
 
 class Game:
@@ -11,16 +19,28 @@ class Game:
         self.height = 600
         self.title = "Way - 3D Maze Game"
 
-        self.wall_texture: rl.Texture2D | None = None
-        self.wall_model: rl.Model | None = None
+        self.wall_texture: rl.Texture2D | None = None  # type: ignore
+        self.wall_model: rl.Model | None = None  # type: ignore
 
-        self.grass_texture: rl.Texture2D | None = None
-        self.ground_model: rl.Model | None = None
+        self.grass_texture: rl.Texture2D | None = None  # type: ignore
+        self.ground_model: rl.Model | None = None  # type: ignore
 
-        self.init_game()
+        self.state = GameState.MENU
+        self.selected_algo = Algorithm.DFS
+        self.show_minimap = False
+        
+        # Placeholders for game objects
+        self.maze = None # type: ignore
+        self.player = None # type: ignore
+        self.destination = None # type: ignore
+        self.is_won = False
 
-    def init_game(self) -> None:
-        self.maze = get_default_maze()
+    def init_game(self, algo: Algorithm | None = None) -> None:
+        if algo:
+            self.selected_algo = algo
+            self.maze = generate_maze(25, 25, algorithm=algo)
+        else:
+            self.maze = get_default_maze()
 
         # Find two farthest points
         p1, p2 = self.maze.find_farthest_points()
@@ -45,7 +65,7 @@ class Game:
         self.destination = rl.Vector3(float(dest_x) + 0.5, 0.5, float(dest_z) + 0.5)
 
         self.is_won = False
-        self.show_minimap = False
+        self.state = GameState.PLAYING
 
     def run(self) -> None:
         rl.init_window(self.width, self.height, self.title)
@@ -58,7 +78,7 @@ class Game:
         if self.wall_texture:
             rl.set_material_texture(
                 self.wall_model.materials[0],
-                rl.MATERIAL_MAP_DIFFUSE,
+                rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
                 self.wall_texture,
             )
 
@@ -67,16 +87,16 @@ class Game:
         if self.grass_texture:
             rl.set_texture_wrap(self.grass_texture, rl.TEXTURE_WRAP_REPEAT)  # type: ignore
 
-        mesh_plane = rl.gen_mesh_plane(float(self.maze.width), float(self.maze.height), 1, 1)
+        # We generate a generic ground model. We might need to regenerate it 
+        # if maze size changes, but for now we keep it 25x25 (27x27 with odd padding)
+        mesh_plane = rl.gen_mesh_plane(30.0, 30.0, 1, 1)
         self.ground_model = rl.load_model_from_mesh(mesh_plane)
-        if self.ground_model:
-            if self.grass_texture:
-                rl.set_material_texture(
-                    self.ground_model.materials[0],
-                    rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
-                    self.grass_texture,
-                )
-
+        if self.grass_texture:
+            rl.set_material_texture(
+                self.ground_model.materials[0],
+                rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
+                self.grass_texture,
+            )
 
         while not rl.window_should_close():
             delta_time = rl.get_frame_time()
@@ -96,82 +116,119 @@ class Game:
         rl.close_window()
 
     def update(self, delta_time: float) -> None:
-        if not self.is_won:
+        # Global Reset Shortcut: Shift + R
+        shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(
+            rl.KeyboardKey.KEY_RIGHT_SHIFT
+        )  # type: ignore
+        if shift and rl.is_key_pressed(rl.KeyboardKey.KEY_R):  # type: ignore
+            self.init_game(self.selected_algo)
+
+        if self.state == GameState.MENU:
+            self.update_menu()
+        elif self.state == GameState.PLAYING:
             self.player.update(delta_time, self.maze)
 
             # Check win condition
             dist = rl.vector3_distance(self.player.position, self.destination)
             if dist < 0.5:
                 self.is_won = True
+                self.state = GameState.WON
 
             # Toggle minimap with M
-            if rl.is_key_pressed(rl.KeyboardKey.KEY_M):
+            if rl.is_key_pressed(rl.KeyboardKey.KEY_M):  # type: ignore
                 self.show_minimap = not self.show_minimap
-        else:
-            # Play again with R or Enter
-            if rl.is_key_pressed(rl.KeyboardKey.KEY_R) or rl.is_key_pressed(
-                rl.KeyboardKey.KEY_ENTER
+        elif self.state == GameState.WON:
+            if rl.is_key_pressed(rl.KeyboardKey.KEY_R) or rl.is_key_pressed(  # type: ignore
+                rl.KeyboardKey.KEY_ENTER  # type: ignore
             ):
-                self.init_game()
+                self.state = GameState.MENU
+
+    def update_menu(self) -> None:
+        if rl.is_key_pressed(rl.KeyboardKey.KEY_ONE):  # type: ignore
+            self.init_game(Algorithm.DFS)
+        if rl.is_key_pressed(rl.KeyboardKey.KEY_TWO):  # type: ignore
+            self.init_game(Algorithm.PRIMS)
+        if rl.is_key_pressed(rl.KeyboardKey.KEY_THREE):  # type: ignore
+            self.init_game(Algorithm.KRUSKALS)
+        if rl.is_key_pressed(rl.KeyboardKey.KEY_FOUR):  # type: ignore
+            self.init_game(Algorithm.BINARY_TREE)
+        if rl.is_key_pressed(rl.KeyboardKey.KEY_FIVE):  # type: ignore
+            self.init_game(Algorithm.SIDEWINDER)
 
     def draw(self) -> None:
         rl.begin_drawing()
         rl.clear_background(rl.SKYBLUE)
 
-        rl.begin_mode_3d(self.player.get_camera())
-
-        # Draw ground model
-        if self.ground_model:
-            pos = rl.Vector3(self.maze.width / 2.0, 0, self.maze.height / 2.0)
-            rl.draw_model(self.ground_model, pos, 1.0, rl.WHITE)
+        if self.state == GameState.MENU:
+            self.draw_menu()
         else:
-            rl.draw_plane(
-                rl.Vector3(self.maze.width / 2.0, 0, self.maze.height / 2.0),
-                rl.Vector2(float(self.maze.width), float(self.maze.height)),
-                rl.GREEN,
-            )
+            rl.begin_mode_3d(self.player.get_camera())
 
-        # Draw maze walls
-        if self.wall_model:
-            for z in range(self.maze.height):
-                for x in range(self.maze.width):
-                    if self.maze.is_wall(x, z):
-                        pos = rl.Vector3(float(x) + 0.5, 0.5, float(z) + 0.5)
-                        rl.draw_model(self.wall_model, pos, 1.0, rl.WHITE)
+            # Draw ground model
+            if self.ground_model:
+                pos = rl.Vector3(self.maze.width / 2.0, 0, self.maze.height / 2.0)
+                rl.draw_model(self.ground_model, pos, 1.0, rl.WHITE)
 
-        # Draw destination marker
-        rl.draw_cube(self.destination, 0.5, 2.0, 0.5, rl.GOLD)
-        rl.draw_cube_wires(self.destination, 0.5, 2.0, 0.5, rl.ORANGE)
+            # Draw maze walls
+            if self.wall_model:
+                for z in range(self.maze.height):
+                    for x in range(self.maze.width):
+                        if self.maze.is_wall(x, z):
+                            pos = rl.Vector3(float(x) + 0.5, 0.5, float(z) + 0.5)
+                            rl.draw_model(self.wall_model, pos, 1.0, rl.WHITE)
 
-        rl.end_mode_3d()
+            # Draw destination marker
+            rl.draw_cube(self.destination, 0.5, 2.0, 0.5, rl.GOLD)
+            rl.draw_cube_wires(self.destination, 0.5, 2.0, 0.5, rl.ORANGE)
 
-        # Draw HUD
-        self.draw_hud()
+            rl.end_mode_3d()
+            self.draw_hud()
 
         rl.end_drawing()
 
+    def draw_menu(self) -> None:
+        rl.draw_rectangle(0, 0, self.width, self.height, rl.fade(rl.BLACK, 0.8))
+        rl.draw_text("WAY - CHOOSE ALGORITHM", self.width // 2 - 200, 100, 30, rl.GOLD)
+        
+        algos = [
+            "1. Recursive Backtracker (DFS)",
+            "2. Randomized Prim's",
+            "3. Randomized Kruskal's",
+            "4. Binary Tree",
+            "5. Sidewinder"
+        ]
+        
+        for i, text in enumerate(algos):
+            rl.draw_text(text, self.width // 2 - 150, 200 + i * 40, 20, rl.WHITE)
+            
+        rl.draw_text("Press [NUMBER] to Start", self.width // 2 - 120, 450, 20, rl.LIGHTGRAY)
+        rl.draw_text(
+            "SHIFT + R: Re-generate current algo inside maze",
+            self.width // 2 - 220,
+            500,
+            15,
+            rl.GRAY,
+        )
+
     def draw_hud(self) -> None:
-        if self.is_won:
-            # Semi-transparent overlay
+        if self.state == GameState.WON:
             rl.draw_rectangle(0, 0, self.width, self.height, rl.fade(rl.BLACK, 0.5))
             rl.draw_text(
                 "YOU FOUND THE WAY!", self.width // 2 - 150, self.height // 2 - 40, 30, rl.GOLD
             )
             rl.draw_text(
-                "Press [ENTER] or [R] to Play Again",
+                "Press [ENTER] or [R] to Main Menu",
                 self.width // 2 - 140,
                 self.height // 2 + 10,
                 15,
                 rl.WHITE,
             )
         else:
-            rl.draw_text("Find the gold pillar!", 10, 10, 20, rl.BLACK)
-            rl.draw_text("Press [M] to Toggle Minimap", 10, 40, 15, rl.GRAY)
+            rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK)
+            rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
+            rl.draw_text("Press [M] Minimap | SHIFT+R Re-gen", 10, 60, 12, rl.GRAY)
 
-            # Compass
             self.draw_compass()
-
-            # Minimap
             if self.show_minimap:
                 self.draw_minimap()
 
@@ -183,8 +240,8 @@ class Game:
         rl.draw_circle(compass_x, compass_y, 40, rl.LIGHTGRAY)
         rl.draw_circle_lines(compass_x, compass_y, 40, rl.DARKGRAY)
 
-        # Needle points North (Up) when yaw=0
-        needle_len = 25  # Smaller needle
+        # Needle
+        needle_len = 25
         needle_end_x = compass_x + int(math.sin(self.player.yaw) * needle_len)
         needle_end_y = compass_y - int(math.cos(self.player.yaw) * needle_len)
         rl.draw_line_ex(
@@ -194,7 +251,7 @@ class Game:
             rl.RED,
         )
 
-        # Directions - Little more outwards
+        # Directions
         rl.draw_text("N", compass_x - 3, compass_y - 35, 10, rl.BLACK)
         rl.draw_text("S", compass_x - 3, compass_y + 25, 10, rl.BLACK)
         rl.draw_text("E", compass_x + 25, compass_y - 5, 10, rl.BLACK)
@@ -246,9 +303,8 @@ class Game:
         # Player Direction (long line)
         dir_len = 12
         dx = int(math.sin(self.player.yaw) * dir_len)
-        dz = -int(math.cos(self.player.yaw) * dir_len)  # -cos for North=Up
+        dz = -int(math.cos(self.player.yaw) * dir_len)
 
-        # Draw direction line
         rl.draw_line_ex(
             rl.Vector2(float(offset_x + px), float(offset_y + pz)),
             rl.Vector2(float(offset_x + px + dx), float(offset_y + pz + dz)),
