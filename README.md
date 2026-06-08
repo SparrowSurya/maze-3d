@@ -19,6 +19,7 @@ In "Way", you are lost in a procedural maze. Your goal is to find the gold pilla
 ## Controls
 - **Up/Down Arrows:** Move forward/backward.
 - **Left/Right Arrows:** Rotate camera.
+- **[SPACE]:** Jump.
 - **[M]:** Toggle Minimap.
 - **[ENTER] or [R]:** Play Again (when on the win screen).
 

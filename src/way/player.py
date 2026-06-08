@@ -1,5 +1,5 @@
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pyray as rl
 
@@ -11,8 +11,16 @@ class Player:
     position: rl.Vector3
     yaw: float  # Rotation in radians
     pitch: float = 0.0
-    move_speed: float = 5.0
-    rotation_speed: float = 2.0
+    move_speed: float = 3.0
+    rotation_speed: float = 3.0
+
+    # Physics constants
+    vertical_velocity: float = 0.0
+    jump_force: float = 5.0
+    gravity: float = -15.0
+    is_grounded: bool = field(init=False, default=True)
+    base_y: float = 0.5
+    radius: float = 0.4  # Cylindrical radius
 
     def get_camera(self) -> rl.Camera3D:
         target = rl.Vector3(
@@ -25,14 +33,33 @@ class Player:
             target,
             rl.Vector3(0.0, 1.0, 0.0),
             45.0,
-            rl.CAMERA_PERSPECTIVE,
+            rl.CAMERA_PERSPECTIVE,  # type: ignore
         )
+
+    def _check_collision(self, px: float, pz: float, maze: Maze) -> bool:
+        """Checks if a cylinder at (px, pz) with self.radius intersects any maze walls."""
+        # Check all cells that the circle's bounding box might overlap
+        # Since walls are 1x1 units at integer coordinates
+        for i in range(int(px - self.radius), int(px + self.radius) + 1):
+            for j in range(int(pz - self.radius), int(pz + self.radius) + 1):
+                if maze.is_wall(i, j):
+                    # Circle vs AABB (i, j, 1, 1) collision
+                    # Find closest point on the wall AABB to the circle center
+                    closest_x = max(float(i), min(px, float(i) + 1.0))
+                    closest_z = max(float(j), min(pz, float(j) + 1.0))
+
+                    # Calculate distance from circle center to this closest point
+                    dx = px - closest_x
+                    dz = pz - closest_z
+                    if (dx * dx + dz * dz) < (self.radius * self.radius):
+                        return True
+        return False
 
     def update(self, delta_time: float, maze: Maze) -> None:
         # Rotation
-        if rl.is_key_down(rl.KeyboardKey.KEY_LEFT):
+        if rl.is_key_down(rl.KeyboardKey.KEY_LEFT):  # type: ignore
             self.yaw -= self.rotation_speed * delta_time
-        if rl.is_key_down(rl.KeyboardKey.KEY_RIGHT):
+        if rl.is_key_down(rl.KeyboardKey.KEY_RIGHT):  # type: ignore
             self.yaw += self.rotation_speed * delta_time
 
         # Movement
@@ -40,36 +67,33 @@ class Player:
         forward = rl.Vector3(math.sin(self.yaw), 0.0, -math.cos(self.yaw))
         new_pos = rl.Vector3(self.position.x, self.position.y, self.position.z)
 
-        if rl.is_key_down(rl.KeyboardKey.KEY_UP):
+        if rl.is_key_down(rl.KeyboardKey.KEY_UP):  # type: ignore
             new_pos.x += forward.x * self.move_speed * delta_time
             new_pos.z += forward.z * self.move_speed * delta_time
-        if rl.is_key_down(rl.KeyboardKey.KEY_DOWN):
+        if rl.is_key_down(rl.KeyboardKey.KEY_DOWN):  # type: ignore
             new_pos.x -= forward.x * self.move_speed * delta_time
             new_pos.z -= forward.z * self.move_speed * delta_time
 
-        # Simple collision: check if new position is in a wall
-        padding = 0.4
+        # Jumping
+        if self.is_grounded and rl.is_key_pressed(rl.KeyboardKey.KEY_SPACE):  # type: ignore
+            self.vertical_velocity = self.jump_force
+            self.is_grounded = False
 
+        # Apply gravity
+        self.vertical_velocity += self.gravity * delta_time
+        self.position.y += self.vertical_velocity * delta_time
+
+        # Ground collision
+        if self.position.y <= self.base_y:
+            self.position.y = self.base_y
+            self.vertical_velocity = 0
+            self.is_grounded = True
+
+        # Cylindrical collision with independent axis checks for sliding
         # Check X movement
-        can_move_x = True
-        for offset_x in [-padding, padding]:
-            for offset_z in [-padding, padding]:
-                if maze.is_wall(int(new_pos.x + offset_x), int(self.position.z + offset_z)):
-                    can_move_x = False
-                    break
-            if not can_move_x:
-                break
-        if can_move_x:
+        if not self._check_collision(new_pos.x, self.position.z, maze):
             self.position.x = new_pos.x
 
         # Check Z movement
-        can_move_z = True
-        for offset_z in [-padding, padding]:
-            for offset_x in [-padding, padding]:
-                if maze.is_wall(int(self.position.x + offset_x), int(new_pos.z + offset_z)):
-                    can_move_z = False
-                    break
-            if not can_move_z:
-                break
-        if can_move_z:
+        if not self._check_collision(self.position.x, new_pos.z, maze):
             self.position.z = new_pos.z

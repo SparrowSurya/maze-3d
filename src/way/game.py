@@ -65,16 +65,18 @@ class Game:
         # Load Grass Assets
         self.grass_texture = rl.load_texture("assets/grass_texture.png")
         if self.grass_texture:
-            rl.set_texture_wrap(self.grass_texture, rl.TEXTURE_WRAP_REPEAT)
+            rl.set_texture_wrap(self.grass_texture, rl.TEXTURE_WRAP_REPEAT)  # type: ignore
 
         mesh_plane = rl.gen_mesh_plane(float(self.maze.width), float(self.maze.height), 1, 1)
         self.ground_model = rl.load_model_from_mesh(mesh_plane)
-        if self.grass_texture:
-            rl.set_material_texture(
-                self.ground_model.materials[0],
-                rl.MATERIAL_MAP_DIFFUSE,
-                self.grass_texture,
-            )
+        if self.ground_model:
+            if self.grass_texture:
+                rl.set_material_texture(
+                    self.ground_model.materials[0],
+                    rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
+                    self.grass_texture,
+                )
+
 
         while not rl.window_should_close():
             delta_time = rl.get_frame_time()
@@ -199,13 +201,17 @@ class Game:
         rl.draw_text("W", compass_x - 35, compass_y - 5, 10, rl.BLACK)
 
     def draw_minimap(self) -> None:
-        map_size = 180  # Slightly larger
-        cell_size = map_size // max(self.maze.width, self.maze.height)
-        offset_x = self.width - map_size - 10
-        offset_y = self.height - map_size - 10
+        max_map_size = 180
+        cell_size = max_map_size // max(self.maze.width, self.maze.height)
+        
+        actual_width = cell_size * self.maze.width
+        actual_height = cell_size * self.maze.height
+        
+        offset_x = self.width - actual_width - 10
+        offset_y = self.height - actual_height - 10
 
         # Background
-        rl.draw_rectangle(offset_x, offset_y, map_size, map_size, rl.fade(rl.BLACK, 0.7))
+        rl.draw_rectangle(offset_x, offset_y, actual_width, actual_height, rl.fade(rl.BLACK, 0.7))
 
         # Walls
         for z in range(self.maze.height):
@@ -218,6 +224,9 @@ class Game:
                         cell_size,
                         rl.GRAY,
                     )
+
+        # Boundary Outline
+        rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
         # Destination
         dest_x = int(self.destination.x)
