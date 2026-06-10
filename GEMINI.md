@@ -37,7 +37,7 @@ In "Way", you are lost in a procedural maze. Your goal is to find the gold pilla
 - **Left/Right Arrows:** Rotate camera.
 - **[SPACE]:** Jump.
 - **[M]:** Toggle Minimap.
-- **[SHIFT + R]:** Instant re-generate maze with current algorithm.
+- **[SHIFT + R]:** Return to Main Menu for algorithm re-selection.
 - **[ENTER] or [R]:** Return to Menu (when on the win screen).
 - **[1-5]:** Select Algorithm (in the Main Menu).
 

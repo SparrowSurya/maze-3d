@@ -120,7 +120,7 @@ class Game:
             rl.KeyboardKey.KEY_RIGHT_SHIFT  # type: ignore
         )
         if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_R):  # type: ignore
-            self.init_game(self.selected_algo)
+            self.state = GameState.MENU
 
         if self.state == GameState.MENU:
             self.update_menu()
@@ -227,8 +227,8 @@ class Game:
 
         rl.draw_text("Press [NUMBER] to Start", self.width // 2 - 120, 450, 20, rl.LIGHTGRAY)
         rl.draw_text(
-            "SHIFT + R: Re-generate current algo inside maze",
-            self.width // 2 - 220,
+            "SHIFT + R: Return to Menu from game",
+            self.width // 2 - 160,
             500,
             15,
             rl.GRAY,
@@ -250,7 +250,7 @@ class Game:
         else:
             rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK)
             rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
-            rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Re-gen", 10, 60, 12, rl.GRAY)
+            rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
 
             self.draw_compass()
             if self.show_minimap:
