@@ -1,9 +1,15 @@
+from enum import Enum, auto
 import math
 from dataclasses import dataclass, field
 
 import pyray as rl
 
 from .maze import Maze
+
+
+class ViewMode(Enum):
+    FIRST_PERSON = auto()
+    TOP_DOWN = auto()
 
 
 @dataclass
@@ -20,28 +26,56 @@ class Player:
     gravity: float = -15.0
     is_grounded: bool = field(init=False, default=True)
     base_y: float = 0.5
-    radius: float = 0.4  # Cylindrical radius
+    radius: float = 0.3  # Cylindrical radius
+    height: float = 0.8
+
+    view_mode: ViewMode = ViewMode.FIRST_PERSON
+    TOP_DOWN_HEIGHT: float = 12.0
 
     def get_camera(self) -> rl.Camera3D:
-        target = rl.Vector3(
-            self.position.x + math.sin(self.yaw),
-            self.position.y + math.sin(self.pitch),
-            self.position.z - math.cos(self.yaw),
-        )
-        return rl.Camera3D(
-            self.position,
-            target,
-            rl.Vector3(0.0, 1.0, 0.0),
-            45.0,
-            rl.CAMERA_PERSPECTIVE,  # type: ignore
-        )
+        if self.view_mode == ViewMode.FIRST_PERSON:
+            target = rl.Vector3(
+                self.position.x + math.sin(self.yaw),
+                self.position.y + math.sin(self.pitch),
+                self.position.z - math.cos(self.yaw),
+            )
+            return rl.Camera3D(
+                self.position,
+                target,
+                rl.Vector3(0.0, 1.0, 0.0),
+                45.0,
+                rl.CAMERA_PERSPECTIVE,  # type: ignore
+            )
+        else:
+            # Top-down view
+            # Camera is high above the player, looking straight down
+            camera_pos = rl.Vector3(
+                self.position.x,
+                self.position.y + self.TOP_DOWN_HEIGHT,
+                self.position.z,
+            )
+            # Look at the player
+            target = self.position
+            # Up vector is the player's forward direction to make them always face "up"
+            up = rl.Vector3(math.sin(self.yaw), 0.0, -math.cos(self.yaw))
+            return rl.Camera3D(
+                camera_pos,
+                target,
+                up,
+                45.0,
+                rl.CAMERA_PERSPECTIVE,  # type: ignore
+            )
 
     def _check_collision(self, px: float, pz: float, maze: Maze) -> bool:
         """Checks if a cylinder at (px, pz) with self.radius intersects any maze walls."""
-        # Check all cells that the circle's bounding box might overlap
-        # Since walls are 1x1 units at integer coordinates
-        for i in range(int(px - self.radius), int(px + self.radius) + 1):
-            for j in range(int(pz - self.radius), int(pz + self.radius) + 1):
+        # Use floor to ensure we check the correct grid cells, even for near-boundary values
+        min_x = int(math.floor(px - self.radius))
+        max_x = int(math.floor(px + self.radius))
+        min_z = int(math.floor(pz - self.radius))
+        max_z = int(math.floor(pz + self.radius))
+
+        for i in range(min_x, max_x + 1):
+            for j in range(min_z, max_z + 1):
                 if maze.is_wall(i, j):
                     # Circle vs AABB (i, j, 1, 1) collision
                     # Find closest point on the wall AABB to the circle center
@@ -65,14 +99,14 @@ class Player:
         # Movement
         # forward vector: x = sin(yaw), z = -cos(yaw)
         forward = rl.Vector3(math.sin(self.yaw), 0.0, -math.cos(self.yaw))
-        new_pos = rl.Vector3(self.position.x, self.position.y, self.position.z)
-
+        
+        move_vec = rl.Vector3(0, 0, 0)
         if rl.is_key_down(rl.KeyboardKey.KEY_UP):  # type: ignore
-            new_pos.x += forward.x * self.move_speed * delta_time
-            new_pos.z += forward.z * self.move_speed * delta_time
+            move_vec.x += forward.x * self.move_speed * delta_time
+            move_vec.z += forward.z * self.move_speed * delta_time
         if rl.is_key_down(rl.KeyboardKey.KEY_DOWN):  # type: ignore
-            new_pos.x -= forward.x * self.move_speed * delta_time
-            new_pos.z -= forward.z * self.move_speed * delta_time
+            move_vec.x -= forward.x * self.move_speed * delta_time
+            move_vec.z -= forward.z * self.move_speed * delta_time
 
         # Jumping
         if self.is_grounded and rl.is_key_pressed(rl.KeyboardKey.KEY_SPACE):  # type: ignore
@@ -89,11 +123,20 @@ class Player:
             self.vertical_velocity = 0
             self.is_grounded = True
 
-        # Cylindrical collision with independent axis checks for sliding
-        # Check X movement
-        if not self._check_collision(new_pos.x, self.position.z, maze):
-            self.position.x = new_pos.x
+        # Robust sliding collision
+        new_x = self.position.x + move_vec.x
+        new_z = self.position.z + move_vec.z
 
-        # Check Z movement
-        if not self._check_collision(self.position.x, new_pos.z, maze):
-            self.position.z = new_pos.z
+        # 1. Try full movement
+        if not self._check_collision(new_x, new_z, maze):
+            self.position.x = new_x
+            self.position.z = new_z
+        else:
+            # 2. Try sliding along X
+            if not self._check_collision(new_x, self.position.z, maze):
+                self.position.x = new_x
+            
+            # 3. Try sliding along Z
+            # (Note: we check against current self.position.x which might have been updated)
+            if not self._check_collision(self.position.x, new_z, maze):
+                self.position.z = new_z

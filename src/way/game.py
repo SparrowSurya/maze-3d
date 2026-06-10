@@ -4,7 +4,7 @@ from enum import Enum, auto
 import pyray as rl
 
 from .maze import Algorithm, Maze, generate_maze, get_default_maze
-from .player import Player
+from .player import Player, ViewMode
 
 
 class GameState(Enum):
@@ -136,6 +136,13 @@ class Game:
             # Toggle minimap with M
             if rl.is_key_pressed(rl.KeyboardKey.KEY_M):  # type: ignore
                 self.show_minimap = not self.show_minimap
+
+            # Toggle view mode with Shift + V
+            if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_V):  # type: ignore
+                if self.player.view_mode == ViewMode.FIRST_PERSON:
+                    self.player.view_mode = ViewMode.TOP_DOWN
+                else:
+                    self.player.view_mode = ViewMode.FIRST_PERSON
         elif self.state == GameState.WON:
             if rl.is_key_pressed(rl.KeyboardKey.KEY_R) or rl.is_key_pressed(  # type: ignore
                 rl.KeyboardKey.KEY_ENTER  # type: ignore
@@ -179,6 +186,24 @@ class Game:
             # Draw destination marker
             rl.draw_cube(self.destination, 0.5, 2.0, 0.5, rl.GOLD)
             rl.draw_cube_wires(self.destination, 0.5, 2.0, 0.5, rl.ORANGE)
+
+            # Draw player as cylinder in top-down mode
+            if self.player.view_mode == ViewMode.TOP_DOWN:
+                # Player position is at their feet, but base_y = 0.5.
+                # rl.draw_cylinder expects start and end points.
+                start_pos = rl.Vector3(self.player.position.x, 0.0, self.player.position.z)
+                end_pos = rl.Vector3(
+                    self.player.position.x, self.player.height, self.player.position.z
+                )
+                rl.draw_cylinder(start_pos, self.player.radius, self.player.radius, self.player.height, 16, rl.RED)
+                # Draw a small line to indicate direction
+                dir_len = 0.5
+                dir_end = rl.Vector3(
+                    self.player.position.x + math.sin(self.player.yaw) * dir_len,
+                    self.player.height,
+                    self.player.position.z - math.cos(self.player.yaw) * dir_len,
+                )
+                rl.draw_line_3d(end_pos, dir_end, rl.WHITE)
 
             rl.end_mode_3d()
             self.draw_hud()
@@ -225,7 +250,7 @@ class Game:
         else:
             rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK)
             rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
-            rl.draw_text("Press [M] Minimap | SHIFT+R Re-gen", 10, 60, 12, rl.GRAY)
+            rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Re-gen", 10, 60, 12, rl.GRAY)
 
             self.draw_compass()
             if self.show_minimap:
