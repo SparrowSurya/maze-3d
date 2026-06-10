@@ -3,7 +3,7 @@ from enum import Enum, auto
 
 import pyray as rl
 
-from .maze import Algorithm, get_default_maze, generate_maze
+from .maze import Algorithm, Maze, generate_maze, get_default_maze
 from .player import Player
 
 
@@ -28,12 +28,12 @@ class Game:
         self.state = GameState.MENU
         self.selected_algo = Algorithm.DFS
         self.show_minimap = False
-        
-        # Placeholders for game objects
-        self.maze = None # type: ignore
-        self.player = None # type: ignore
-        self.destination = None # type: ignore
-        self.is_won = False
+
+        # Properly type and initialize placeholders
+        self.maze: Maze = Maze([])
+        self.player: Player = Player(rl.Vector3(0, 0, 0), 0.0)
+        self.destination: rl.Vector3 = rl.Vector3(0, 0, 0)
+        self.is_won: bool = False
 
     def init_game(self, algo: Algorithm | None = None) -> None:
         if algo:
@@ -75,7 +75,7 @@ class Game:
         self.wall_texture = rl.load_texture("assets/wall_texture.png")
         mesh_cube = rl.gen_mesh_cube(1.0, 1.0, 1.0)
         self.wall_model = rl.load_model_from_mesh(mesh_cube)
-        if self.wall_texture:
+        if self.wall_model and self.wall_texture:
             rl.set_material_texture(
                 self.wall_model.materials[0],
                 rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
@@ -87,11 +87,10 @@ class Game:
         if self.grass_texture:
             rl.set_texture_wrap(self.grass_texture, rl.TEXTURE_WRAP_REPEAT)  # type: ignore
 
-        # We generate a generic ground model. We might need to regenerate it 
-        # if maze size changes, but for now we keep it 25x25 (27x27 with odd padding)
+        # We generate a generic ground model
         mesh_plane = rl.gen_mesh_plane(30.0, 30.0, 1, 1)
         self.ground_model = rl.load_model_from_mesh(mesh_plane)
-        if self.grass_texture:
+        if self.ground_model and self.grass_texture:
             rl.set_material_texture(
                 self.ground_model.materials[0],
                 rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
@@ -117,10 +116,10 @@ class Game:
 
     def update(self, delta_time: float) -> None:
         # Global Reset Shortcut: Shift + R
-        shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(
-            rl.KeyboardKey.KEY_RIGHT_SHIFT
-        )  # type: ignore
-        if shift and rl.is_key_pressed(rl.KeyboardKey.KEY_R):  # type: ignore
+        is_shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(  # type: ignore
+            rl.KeyboardKey.KEY_RIGHT_SHIFT  # type: ignore
+        )
+        if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_R):  # type: ignore
             self.init_game(self.selected_algo)
 
         if self.state == GameState.MENU:
@@ -189,18 +188,18 @@ class Game:
     def draw_menu(self) -> None:
         rl.draw_rectangle(0, 0, self.width, self.height, rl.fade(rl.BLACK, 0.8))
         rl.draw_text("WAY - CHOOSE ALGORITHM", self.width // 2 - 200, 100, 30, rl.GOLD)
-        
+
         algos = [
             "1. Recursive Backtracker (DFS)",
             "2. Randomized Prim's",
             "3. Randomized Kruskal's",
             "4. Binary Tree",
-            "5. Sidewinder"
+            "5. Sidewinder",
         ]
-        
+
         for i, text in enumerate(algos):
             rl.draw_text(text, self.width // 2 - 150, 200 + i * 40, 20, rl.WHITE)
-            
+
         rl.draw_text("Press [NUMBER] to Start", self.width // 2 - 120, 450, 20, rl.LIGHTGRAY)
         rl.draw_text(
             "SHIFT + R: Re-generate current algo inside maze",
@@ -252,18 +251,18 @@ class Game:
         )
 
         # Directions
-        rl.draw_text("N", compass_x - 3, compass_y - 35, 10, rl.BLACK)
-        rl.draw_text("S", compass_x - 3, compass_y + 25, 10, rl.BLACK)
-        rl.draw_text("E", compass_x + 25, compass_y - 5, 10, rl.BLACK)
-        rl.draw_text("W", compass_x - 35, compass_y - 5, 10, rl.BLACK)
+        rl.draw_text("N", compass_x - 3, compass_y - 32, 10, rl.BLACK)
+        rl.draw_text("S", compass_x - 3, compass_y + 22, 10, rl.BLACK)
+        rl.draw_text("E", compass_x + 22, compass_y - 5, 10, rl.BLACK)
+        rl.draw_text("W", compass_x - 32, compass_y - 5, 10, rl.BLACK)
 
     def draw_minimap(self) -> None:
         max_map_size = 180
         cell_size = max_map_size // max(self.maze.width, self.maze.height)
-        
+
         actual_width = cell_size * self.maze.width
         actual_height = cell_size * self.maze.height
-        
+
         offset_x = self.width - actual_width - 10
         offset_y = self.height - actual_height - 10
 
