@@ -112,7 +112,7 @@ class Player:
             move_vec.z -= forward.z * self.move_speed * delta_time
 
         # Jumping
-        if self.is_grounded and rl.is_key_pressed(rl.KeyboardKey.KEY_SPACE):  # type: ignore
+        if self.is_grounded and rl.is_key_pressed(rl.KeyboardKey.KEY_W):  # type: ignore
             self.vertical_velocity = self.jump_force
             self.is_grounded = False
 

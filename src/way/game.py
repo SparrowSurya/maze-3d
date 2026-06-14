@@ -36,6 +36,10 @@ class Game:
         self.is_won: bool = False
         self.axes_count: int = 0
         self.axe_pos: rl.Vector3 | None = None
+        self.has_gun: bool = False
+        self.gun_pos: rl.Vector3 | None = None
+        self.bullets: list[tuple[rl.Vector3, rl.Vector3]] = []
+        self.last_shoot_time: float = 0.0
 
     def init_game(self, algo: Algorithm | None = None) -> None:
         if algo:
@@ -70,6 +74,12 @@ class Game:
         self.axes_count = 0
         self.axe_pos = None
 
+        # Spawn Gun (collectible)
+        self.has_gun = False
+        self.gun_pos = None
+        self.bullets = []
+        self.last_shoot_time = 0.0
+
         # Find a suitable spot for the axe (not too close to spawn or destination)
         min_dist = max(self.maze.width, self.maze.height) / 3.0
         max_attempts = 100
@@ -81,6 +91,16 @@ class Game:
             if d_spawn > min_dist and d_dest > min_dist:
                 self.axe_pos = potential_axe_pos
                 break
+
+        # Find a suitable spot for the gun
+        for _ in range(max_attempts):
+            gx, gz = self.maze.get_random_empty_cell()
+            potential_gun_pos = rl.Vector3(float(gx) + 0.5, 0.5, float(gz) + 0.5)
+            d_spawn = rl.vector3_distance(potential_gun_pos, self.player.position)
+            if d_spawn > min_dist:
+                if not self.axe_pos or rl.vector3_distance(potential_gun_pos, self.axe_pos) > 1.0:
+                    self.gun_pos = potential_gun_pos
+                    break
 
         self.is_won = False
         self.state = GameState.PLAYING
@@ -157,6 +177,55 @@ class Game:
                 if dist_axe < 0.8:
                     self.axes_count += 1
                     self.axe_pos = None
+
+            # Check gun collection
+            if self.gun_pos:
+                dist_gun = rl.vector3_distance(self.player.position, self.gun_pos)
+                if dist_gun < 0.8:
+                    self.has_gun = True
+                    self.gun_pos = None
+
+            # Shooting Logic
+            if self.has_gun and rl.is_key_pressed(rl.KeyboardKey.KEY_SPACE):
+                current_time = rl.get_time()
+                if current_time - self.last_shoot_time > 0.5:
+                    self.last_shoot_time = current_time
+                    # Spawn bullet from player position in look direction
+                    bullet_speed = 15.0
+                    bullet_pos = rl.Vector3(
+                        self.player.position.x, self.player.position.y, self.player.position.z
+                    )
+                    bullet_vel = rl.Vector3(
+                        math.sin(self.player.yaw) * bullet_speed,
+                        0.0,
+                        -math.cos(self.player.yaw) * bullet_speed,
+                    )
+                    self.bullets.append((bullet_pos, bullet_vel))
+
+            # Update bullets
+            alive_bullets = []
+            for pos, vel in self.bullets:
+                pos.x += vel.x * delta_time
+                pos.y += vel.y * delta_time
+                pos.z += vel.z * delta_time
+
+                # Check bounds
+                if (
+                    pos.x < 0
+                    or pos.x >= self.maze.width
+                    or pos.z < 0
+                    or pos.z >= self.maze.height
+                ):
+                    continue
+
+                # Check wall collision
+                grid_x = int(pos.x)
+                grid_z = int(pos.z)
+                if self.maze.is_wall(grid_x, grid_z):
+                    continue  # Destroy bullet
+
+                alive_bullets.append((pos, vel))
+            self.bullets = alive_bullets
 
             # Wall Destruction Logic
             is_ctrl = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_CONTROL) or rl.is_key_down(
@@ -289,6 +358,17 @@ class Game:
                 rl.draw_cube(axe_draw_pos, 0.2, 0.2, 0.2, rl.BLUE)
                 rl.draw_cube_wires(axe_draw_pos, 0.2, 0.2, 0.2, rl.DARKBLUE)
 
+            # Draw gun collectible
+            if self.gun_pos:
+                bobbing = math.sin(rl.get_time() * 4.0) * 0.1
+                gun_draw_pos = rl.Vector3(self.gun_pos.x, self.gun_pos.y + bobbing, self.gun_pos.z)
+                rl.draw_cube(gun_draw_pos, 0.2, 0.2, 0.2, rl.PURPLE)
+                rl.draw_cube_wires(gun_draw_pos, 0.2, 0.2, 0.2, rl.VIOLET)
+
+            # Draw bullets
+            for pos, _ in self.bullets:
+                rl.draw_sphere(pos, 0.1, rl.YELLOW)
+
             # Targeting Highlight
             if self.axes_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
                 target = self.get_targeted_wall()
@@ -349,6 +429,9 @@ class Game:
 
             if self.axes_count > 0:
                 rl.draw_text(f"Axe: {self.axes_count}", 10, 80, 15, rl.BLUE)
+
+            if self.has_gun:
+                rl.draw_text("Gun", 10, 100, 15, rl.PURPLE)
 
             # Draw a smol red dot in the center of the screen
             dot_radius = 3
@@ -420,7 +503,7 @@ class Game:
         offset_y = self.height - actual_height - 10
 
         # Background
-        rl.draw_rectangle(offset_x, offset_y, actual_width, actual_height, rl.fade(rl.BLACK, 0.7))
+        rl.draw_rectangle(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
         # Walls
         for z in range(self.maze.height):
@@ -458,6 +541,18 @@ class Game:
                 cell_size,
                 cell_size,
                 rl.BLUE,
+            )
+
+        # Gun (if not collected)
+        if self.gun_pos:
+            gx = int(self.gun_pos.x)
+            gz = int(self.gun_pos.z)
+            rl.draw_rectangle(
+                offset_x + gx * cell_size,
+                offset_y + gz * cell_size,
+                cell_size,
+                cell_size,
+                rl.PURPLE,
             )
 
         # Player

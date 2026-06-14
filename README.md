@@ -18,12 +18,16 @@ In "Way", you are lost in a procedural maze. Your goal is to find the gold pilla
 - **Axe & Wall Destruction:** 
     - **Collectible Axe:** Find the floating blue cube to gain the ability to break one wall.
     - **Precise Targeting:** Hold [X] to highlight the wall you are looking at; valid walls will glow red.
+- **Gun & Shooting:**
+    - **Collectible Gun:** Find the floating black cube to gain a firearm.
+    - **Projectile Physics:** Shoot bullets (yellow spheres) that fly and hit walls.
 - **Gameplay Loop:** Menu State (Select Algorithm) -> Random spawn -> Exploration -> Goal Reached -> Win Screen -> Restart Mechanism.
 
 ## Controls
 - **Up/Down Arrows:** Move forward/backward.
 - **Left/Right Arrows:** Rotate camera.
-- **[SPACE]:** Jump.
+- **[W]:** Jump.
+- **[SPACE]:** Shoot Bullet (requires Gun).
 - **[M]:** Toggle Minimap.
 - **[X]:** Hold to highlight the targeted wall.
 - **[CTRL + X]:** Destroy the highlighted wall (consumes 1 Axe).
