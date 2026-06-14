@@ -13,8 +13,13 @@ In "Way", you are lost in a procedural maze. Your goal is to find the gold pilla
     - 3D Camera with first-person movement.
 - **Navigation Aids:**
     - **Compass:** Real-time 2D compass on the HUD indicating your current heading.
-    - **Minimap:** Toggleable (Press [M]) bottom-right map showing maze layout, player orientation, and the goal.
-- **Gameplay Loop:** Menu State (Select Algorithm) -> Random spawn -> Exploration -> Goal Reached -> Win Screen -> Restart Mechanism.
+    - **Minimap:** Toggleable (Press [M]) bottom-right map showing maze layout, player orientation, goal, and axe location.
+    - **Crosshair:** A red dot in the center of the screen for precise navigation and targeting.
+- **Axe & Wall Destruction:** 
+    - **Collectible Axe:** A floating blue cube that can be used once to destroy a wall.
+    - **Targeting:** Precise 3D raycasting to identify walls.
+    - **Safety:** Boundary walls are protected and cannot be destroyed.
+- **Gameplay Loop:** Menu State (Select Algorithm) -> Random spawn -> Exploration & Collection -> Goal Reached -> Win Screen -> Restart Mechanism.
 
 ## Technical Stack
 - **Language:** Python 3.12

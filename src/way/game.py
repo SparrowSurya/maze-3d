@@ -34,6 +34,8 @@ class Game:
         self.player: Player = Player(rl.Vector3(0, 0, 0), 0.0)
         self.destination: rl.Vector3 = rl.Vector3(0, 0, 0)
         self.is_won: bool = False
+        self.axes_count: int = 0
+        self.axe_pos: rl.Vector3 | None = None
 
     def init_game(self, algo: Algorithm | None = None) -> None:
         if algo:
@@ -63,6 +65,22 @@ class Game:
         )
 
         self.destination = rl.Vector3(float(dest_x) + 0.5, 0.5, float(dest_z) + 0.5)
+
+        # Spawn Axe (collectible)
+        self.axes_count = 0
+        self.axe_pos = None
+
+        # Find a suitable spot for the axe (not too close to spawn or destination)
+        min_dist = max(self.maze.width, self.maze.height) / 3.0
+        max_attempts = 100
+        for _ in range(max_attempts):
+            ax, az = self.maze.get_random_empty_cell()
+            potential_axe_pos = rl.Vector3(float(ax) + 0.5, 0.5, float(az) + 0.5)
+            d_spawn = rl.vector3_distance(potential_axe_pos, self.player.position)
+            d_dest = rl.vector3_distance(potential_axe_pos, self.destination)
+            if d_spawn > min_dist and d_dest > min_dist:
+                self.axe_pos = potential_axe_pos
+                break
 
         self.is_won = False
         self.state = GameState.PLAYING
@@ -133,6 +151,24 @@ class Game:
                 self.is_won = True
                 self.state = GameState.WON
 
+            # Check axe collection
+            if self.axe_pos:
+                dist_axe = rl.vector3_distance(self.player.position, self.axe_pos)
+                if dist_axe < 0.8:
+                    self.axes_count += 1
+                    self.axe_pos = None
+
+            # Wall Destruction Logic
+            is_ctrl = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_CONTROL) or rl.is_key_down(
+                rl.KeyboardKey.KEY_RIGHT_CONTROL
+            )
+            if self.axes_count > 0 and is_ctrl and rl.is_key_pressed(rl.KeyboardKey.KEY_X):
+                target = self.get_targeted_wall()
+                if target:
+                    tx, tz = target
+                    self.maze.grid[tz][tx] = 0
+                    self.axes_count -= 1
+
             # Toggle minimap with M
             if rl.is_key_pressed(rl.KeyboardKey.KEY_M):  # type: ignore
                 self.show_minimap = not self.show_minimap
@@ -148,6 +184,35 @@ class Game:
                 rl.KeyboardKey.KEY_ENTER  # type: ignore
             ):
                 self.state = GameState.MENU
+
+    def get_targeted_wall(self) -> tuple[int, int] | None:
+        camera = self.player.get_camera()
+        ray = rl.get_screen_to_world_ray(
+            rl.Vector2(float(self.width) / 2.0, float(self.height) / 2.0), camera
+        )
+
+        closest_hit_dist = 5.0  # Max interaction range
+        hit_cell = None
+
+        px, pz = int(self.player.position.x), int(self.player.position.z)
+        radius = 5
+        for z in range(max(0, pz - radius), min(self.maze.height, pz + radius + 1)):
+            for x in range(max(0, px - radius), min(self.maze.width, px + radius + 1)):
+                if self.maze.is_wall(x, z):
+                    # Boundary walls cannot be removed
+                    if x == 0 or x == self.maze.width - 1 or z == 0 or z == self.maze.height - 1:
+                        continue
+
+                    box = rl.BoundingBox(
+                        rl.Vector3(float(x), 0.0, float(z)),
+                        rl.Vector3(float(x) + 1.0, 1.0, float(z) + 1.0),
+                    )
+                    collision = rl.get_ray_collision_box(ray, box)
+                    if collision.hit and collision.distance < closest_hit_dist:
+                        closest_hit_dist = collision.distance
+                        hit_cell = (x, z)
+
+        return hit_cell
 
     def update_menu(self) -> None:
         if rl.is_key_pressed(rl.KeyboardKey.KEY_ONE):  # type: ignore
@@ -212,6 +277,23 @@ class Game:
                 )
                 rl.draw_line_3d(end_pos, dir_end, rl.WHITE)
 
+            # Draw axe collectible
+            if self.axe_pos:
+                bobbing = math.sin(rl.get_time() * 4.0) * 0.1
+                axe_draw_pos = rl.Vector3(self.axe_pos.x, self.axe_pos.y + bobbing, self.axe_pos.z)
+                rl.draw_cube(axe_draw_pos, 0.2, 0.2, 0.2, rl.BLUE)
+                rl.draw_cube_wires(axe_draw_pos, 0.2, 0.2, 0.2, rl.DARKBLUE)
+
+            # Targeting Highlight
+            if self.axes_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
+                target = self.get_targeted_wall()
+                if target:
+                    tx, tz = target
+                    highlight_pos = rl.Vector3(float(tx) + 0.5, 0.5, float(tz) + 0.5)
+                    # Make the wall surface appear as red using a semi-transparent cube
+                    rl.draw_cube(highlight_pos, 1.02, 1.02, 1.02, rl.fade(rl.RED, 0.5))
+                    rl.draw_cube_wires(highlight_pos, 1.02, 1.02, 1.02, rl.RED)
+
             rl.end_mode_3d()
             self.draw_hud()
 
@@ -258,6 +340,9 @@ class Game:
             rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK)
             rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
             rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
+
+            if self.axes_count > 0:
+                rl.draw_text(f"Axe: {self.axes_count}", 10, 80, 15, rl.BLUE)
 
             # Draw a smol red dot in the center of the screen
             dot_radius = 3
@@ -330,6 +415,18 @@ class Game:
             cell_size,
             rl.GOLD,
         )
+
+        # Axe (if not collected)
+        if self.axe_pos:
+            ax = int(self.axe_pos.x)
+            az = int(self.axe_pos.z)
+            rl.draw_rectangle(
+                offset_x + ax * cell_size,
+                offset_y + az * cell_size,
+                cell_size,
+                cell_size,
+                rl.BLUE,
+            )
 
         # Player
         px = int(self.player.position.x * cell_size)

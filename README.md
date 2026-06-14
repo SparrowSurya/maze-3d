@@ -13,7 +13,11 @@ In "Way", you are lost in a procedural maze. Your goal is to find the gold pilla
     - 3D Camera with first-person movement.
 - **Navigation Aids:**
     - **Compass:** Real-time 2D compass on the HUD indicating your current heading (N, S, E, W).
-    - **Minimap:** Toggleable (Press [M]) bottom-right map showing maze layout, player orientation, and the goal.
+    - **Minimap:** Toggleable (Press [M]) bottom-right map showing maze layout, player orientation, goal, and axe location.
+    - **Crosshair:** A red dot in the center of the screen for precise navigation and targeting.
+- **Axe & Wall Destruction:** 
+    - **Collectible Axe:** Find the floating blue cube to gain the ability to break one wall.
+    - **Precise Targeting:** Hold [X] to highlight the wall you are looking at; valid walls will glow red.
 - **Gameplay Loop:** Menu State (Select Algorithm) -> Random spawn -> Exploration -> Goal Reached -> Win Screen -> Restart Mechanism.
 
 ## Controls
@@ -21,6 +25,8 @@ In "Way", you are lost in a procedural maze. Your goal is to find the gold pilla
 - **Left/Right Arrows:** Rotate camera.
 - **[SPACE]:** Jump.
 - **[M]:** Toggle Minimap.
+- **[X]:** Hold to highlight the targeted wall.
+- **[CTRL + X]:** Destroy the highlighted wall (consumes 1 Axe).
 - **[SHIFT + R]:** Instant re-generate maze with current algorithm.
 - **[ENTER] or [R]:** Return to Menu (when on the win screen).
 - **[1-5]:** Select Algorithm (in the Main Menu).
