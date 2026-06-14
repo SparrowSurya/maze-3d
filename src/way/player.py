@@ -32,6 +32,9 @@ class Player:
     view_mode: ViewMode = ViewMode.FIRST_PERSON
     TOP_DOWN_HEIGHT: float = 12.0
 
+    health: float = 100.0
+    max_health: float = 100.0
+
     def get_camera(self) -> rl.Camera3D:
         if self.view_mode == ViewMode.FIRST_PERSON:
             target = rl.Vector3(

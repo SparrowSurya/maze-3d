@@ -354,6 +354,32 @@ class Game:
             dot_radius = 3
             rl.draw_circle(self.width // 2, self.height // 2, dot_radius, rl.RED)
 
+            # Draw Health Bar
+            health_bar_width = 200
+            health_bar_height = 20
+            health_x = 10
+            health_y = self.height - 60
+
+            health_ratio = self.player.health / self.player.max_health
+            rl.draw_rectangle(health_x, health_y, health_bar_width, health_bar_height, rl.BLACK)
+            rl.draw_rectangle(
+                health_x,
+                health_y,
+                int(health_bar_width * health_ratio),
+                health_bar_height,
+                rl.RED if health_ratio < 0.3 else rl.LIME,
+            )
+            rl.draw_rectangle_lines(
+                health_x, health_y, health_bar_width, health_bar_height, rl.DARKGRAY
+            )
+            rl.draw_text(
+                f"{int(self.player.health)}%",
+                health_x + health_bar_width // 2 - 15,
+                health_y + 3,
+                15,
+                rl.WHITE,
+            )
+
             self.draw_compass()
             if self.show_minimap:
                 self.draw_minimap()
