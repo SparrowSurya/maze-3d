@@ -186,10 +186,15 @@ class Game:
                 self.state = GameState.MENU
 
     def get_targeted_wall(self) -> tuple[int, int] | None:
-        camera = self.player.get_camera()
-        ray = rl.get_screen_to_world_ray(
-            rl.Vector2(float(self.width) / 2.0, float(self.height) / 2.0), camera
+        # Construct ray from player position in their forward direction (yaw)
+        # This works in both First Person and Top-Down modes.
+        ray_origin = self.player.position
+        ray_dir = rl.Vector3(
+            math.sin(self.player.yaw),
+            0.0,  # Aim horizontally to hit the center of wall height
+            -math.cos(self.player.yaw),
         )
+        ray = rl.Ray(ray_origin, ray_dir)
 
         closest_hit_dist = 5.0  # Max interaction range
         hit_cell = None
@@ -291,8 +296,9 @@ class Game:
                     tx, tz = target
                     highlight_pos = rl.Vector3(float(tx) + 0.5, 0.5, float(tz) + 0.5)
                     # Make the wall surface appear as red using a semi-transparent cube
-                    rl.draw_cube(highlight_pos, 1.02, 1.02, 1.02, rl.fade(rl.RED, 0.5))
-                    rl.draw_cube_wires(highlight_pos, 1.02, 1.02, 1.02, rl.RED)
+                    # Increased size to 1.1 and opacity to 0.7 for better visibility from top-down
+                    rl.draw_cube(highlight_pos, 1.1, 1.1, 1.1, rl.fade(rl.RED, 0.7))
+                    rl.draw_cube_wires(highlight_pos, 1.1, 1.1, 1.1, rl.RED)
 
             rl.end_mode_3d()
             self.draw_hud()
