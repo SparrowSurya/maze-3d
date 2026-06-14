@@ -195,7 +195,14 @@ class Game:
                 end_pos = rl.Vector3(
                     self.player.position.x, self.player.height, self.player.position.z
                 )
-                rl.draw_cylinder(start_pos, self.player.radius, self.player.radius, self.player.height, 16, rl.RED)
+                rl.draw_cylinder(
+                    start_pos,
+                    self.player.radius,
+                    self.player.radius,
+                    self.player.height,
+                    16,
+                    rl.RED,
+                )
                 # Draw a small line to indicate direction
                 dir_len = 0.5
                 dir_end = rl.Vector3(
@@ -251,6 +258,10 @@ class Game:
             rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK)
             rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
             rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
+
+            # Draw a smol red dot in the center of the screen
+            dot_radius = 3
+            rl.draw_circle(self.width // 2, self.height // 2, dot_radius, rl.RED)
 
             self.draw_compass()
             if self.show_minimap:
