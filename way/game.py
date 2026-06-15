@@ -3,7 +3,7 @@ from enum import Enum, auto
 
 import pyray as rl
 
-from .maze import Algorithm, Maze, generate_maze, get_default_maze
+from .maze import MazeAlgorithm, Maze, generate_maze, get_default_maze
 from .player import Player, ViewMode
 
 
@@ -26,7 +26,7 @@ class Game:
         self.ground_model: rl.Model | None = None  # type: ignore
 
         self.state = GameState.MENU
-        self.selected_algo = Algorithm.DFS
+        self.selected_algo = MazeAlgorithm.DFS
         self.show_minimap = False
 
         # Properly type and initialize placeholders
@@ -37,7 +37,7 @@ class Game:
         self.axes_count: int = 0
         self.axe_pos: rl.Vector3 | None = None
 
-    def init_game(self, algo: Algorithm | None = None) -> None:
+    def init_game(self, algo: MazeAlgorithm | None = None) -> None:
         if algo:
             self.selected_algo = algo
             self.maze = generate_maze(25, 25, algorithm=algo)
@@ -221,15 +221,15 @@ class Game:
 
     def update_menu(self) -> None:
         if rl.is_key_pressed(rl.KeyboardKey.KEY_ONE):  # type: ignore
-            self.init_game(Algorithm.DFS)
+            self.init_game(MazeAlgorithm.DFS)
         if rl.is_key_pressed(rl.KeyboardKey.KEY_TWO):  # type: ignore
-            self.init_game(Algorithm.PRIMS)
+            self.init_game(MazeAlgorithm.PRIMS)
         if rl.is_key_pressed(rl.KeyboardKey.KEY_THREE):  # type: ignore
-            self.init_game(Algorithm.KRUSKALS)
+            self.init_game(MazeAlgorithm.KRUSKALS)
         if rl.is_key_pressed(rl.KeyboardKey.KEY_FOUR):  # type: ignore
-            self.init_game(Algorithm.BINARY_TREE)
+            self.init_game(MazeAlgorithm.BINARY_TREE)
         if rl.is_key_pressed(rl.KeyboardKey.KEY_FIVE):  # type: ignore
-            self.init_game(Algorithm.SIDEWINDER)
+            self.init_game(MazeAlgorithm.SIDEWINDER)
 
     def draw(self) -> None:
         rl.begin_drawing()
@@ -343,7 +343,7 @@ class Game:
                 rl.WHITE,
             )
         else:
-            rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK)
+            rl.draw_text(f"Algorithm: {self.selected_algo.name}", 10, 10, 20, rl.BLACK) # pyright: ignore[reportArgumentType]
             rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
             rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
 
