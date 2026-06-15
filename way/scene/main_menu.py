@@ -6,7 +6,7 @@ import pyray as rl
 
 from .constants import Scene
 from ..maze import MazeAlgorithm
-from ..game import GameState
+from ..game.state import GameState
 
 
 __all__ = (

@@ -6,10 +6,10 @@ import math
 
 import pyray as rl
 
-from .constants import Scene, ViewMode
-from ..game import GameState
+from .constants import Scene
+from ..game.state import GameState
 from ..maze import Maze, generate_maze
-from ..player import Player
+from ..player import Player, ViewMode
 
 
 __all__ = (

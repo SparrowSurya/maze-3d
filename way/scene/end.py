@@ -5,7 +5,7 @@ This submodule contains the main menu scene.
 import pyray as rl
 
 from .constants import Scene
-from ..game import GameState
+from ..game.state import GameState
 
 
 __all__ = (

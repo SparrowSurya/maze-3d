@@ -5,7 +5,7 @@ This submodule contains the interface objects and types for the submodule.
 from typing import Protocol
 
 from .constants import Scene
-from ..game import GameState
+from ..game.state import GameState
 
 
 __all__ = (
