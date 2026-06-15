@@ -52,7 +52,7 @@ class Game:
         self.asset_manager.load_asset(
             "grass.png",
             AssetType.GRASS,
-            rl.gen_mesh_plane(40.0, 40.0, 1, 1),
+            rl.gen_mesh_plane(200.0, 200.0, 1, 1),
             wrap=rl.TEXTURE_WRAP_REPEAT,  # type: ignore
             material=rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
         )

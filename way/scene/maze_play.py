@@ -8,7 +8,14 @@ import math
 
 import pyray as rl
 
-from .constants import Scene, PILLAR_SIZE, PILLAR_HEIGHT, SLICE_THICKNESS, SLICE_HEIGHT
+from .constants import (
+    Scene,
+    PILLAR_SIZE,
+    PILLAR_HEIGHT,
+    SLICE_THICKNESS,
+    SLICE_HEIGHT,
+    CELL_SCALE,
+)
 from ..maze import Maze, generate_maze
 from ..player import Player, ViewMode
 from ..asset import AssetType
@@ -34,6 +41,8 @@ class MazePlayScene:
 
     def init(self, state: GameState) -> None:
         """Initializes the maze and player position."""
+        from .constants import CELL_SCALE
+
         self.maze = generate_maze(25, 25, algorithm=state.algo)
         # Find two farthest points
         p1, p2 = self.maze.find_farthest_points()
@@ -52,20 +61,33 @@ class MazePlayScene:
             spawn_yaw = 3 * math.pi / 2  # West
 
         self.player = Player(
-            rl.Vector3(float(spawn_x) + 0.5, 0.5, float(spawn_z) + 0.5), spawn_yaw
+            rl.Vector3(
+                float(spawn_x) * CELL_SCALE + CELL_SCALE / 2.0,
+                0.5,
+                float(spawn_z) * CELL_SCALE + CELL_SCALE / 2.0,
+            ),
+            spawn_yaw,
         )
 
-        self.destination = rl.Vector3(float(dest_x) + 0.5, 0.5, float(dest_z) + 0.5)
+        self.destination = rl.Vector3(
+            float(dest_x) * CELL_SCALE + CELL_SCALE / 2.0,
+            0.5,
+            float(dest_z) * CELL_SCALE + CELL_SCALE / 2.0,
+        )
 
         # Spawn Axe (collectible)
         self.axe_pos = None
 
         # Find a suitable spot for the axe (not too close to spawn or destination)
-        min_dist = max(self.maze.width, self.maze.height) / 3.0
+        min_dist = (max(self.maze.width, self.maze.height) * CELL_SCALE) / 3.0
         max_attempts = 100
         for _ in range(max_attempts):
             ax, az = self.maze.get_random_empty_cell()
-            potential_axe_pos = rl.Vector3(float(ax) + 0.5, 0.5, float(az) + 0.5)
+            potential_axe_pos = rl.Vector3(
+                float(ax) * CELL_SCALE + CELL_SCALE / 2.0,
+                0.5,
+                float(az) * CELL_SCALE + CELL_SCALE / 2.0,
+            )
             d_spawn = rl.vector3_distance(potential_axe_pos, self.player.position)
             d_dest = rl.vector3_distance(potential_axe_pos, self.destination)
             if d_spawn > min_dist and d_dest > min_dist:
@@ -77,6 +99,8 @@ class MazePlayScene:
         if self.maze is None:
             return None
 
+        from .constants import CELL_SCALE
+
         # Calculate targeting ray based on player's yaw and pitch (independent of camera view)
         ray_start = self.player.position
         forward = rl.Vector3(
@@ -86,15 +110,19 @@ class MazePlayScene:
         )
         ray = rl.Ray(ray_start, forward)
 
-        closest_dist = 5.0  # Max interaction range
+        closest_dist = 5.0 * CELL_SCALE  # Scale interaction range
         hit_cell = None
 
         for z in range(self.maze.height):
             for x in range(self.maze.width):
                 if self.maze.grid[z][x] == 1:
                     wall_box = rl.BoundingBox(
-                        rl.Vector3(float(x), 0.0, float(z)),
-                        rl.Vector3(float(x) + 1.0, 1.0, float(z) + 1.0),
+                        rl.Vector3(float(x) * CELL_SCALE, 0.0, float(z) * CELL_SCALE),
+                        rl.Vector3(
+                            float(x) * CELL_SCALE + CELL_SCALE,
+                            1.2,
+                            float(z) * CELL_SCALE + CELL_SCALE,
+                        ),
                     )
                     hit_info = rl.get_ray_collision_box(ray, wall_box)
                     if hit_info.hit and hit_info.distance < closest_dist:
@@ -121,23 +149,30 @@ class MazePlayScene:
         if ground_asset:
             rl.draw_model(
                 ground_asset.model,
-                rl.Vector3(float(self.maze.width) / 2, 0.0, float(self.maze.height) / 2),
-                1.0,
+                rl.Vector3(
+                    float(self.maze.width) * CELL_SCALE / 2.0,
+                    0.0,
+                    float(self.maze.height) * CELL_SCALE / 2.0,
+                ),
+                CELL_SCALE * 2.0,
                 rl.WHITE,
             )
 
         # Walls
         if wall_asset:
-
             pillar_scale = rl.Vector3(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
-            h_slice_scale = rl.Vector3(1.0, SLICE_HEIGHT, SLICE_THICKNESS)
-            v_slice_scale = rl.Vector3(SLICE_THICKNESS, SLICE_HEIGHT, 1.0)
+            h_slice_scale = rl.Vector3(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
+            v_slice_scale = rl.Vector3(SLICE_THICKNESS, SLICE_HEIGHT, CELL_SCALE)
 
             for z in range(self.maze.height):
                 for x in range(self.maze.width):
                     if self.maze.is_wall(x, z):
                         # Draw Central Pillar
-                        pillar_pos = rl.Vector3(float(x) + 0.5, PILLAR_HEIGHT / 2.0, float(z) + 0.5)
+                        pillar_pos = rl.Vector3(
+                            float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                            PILLAR_HEIGHT / 2.0,
+                            float(z) * CELL_SCALE + CELL_SCALE / 2.0,
+                        )
                         rl.draw_model_ex(
                             wall_asset.model,
                             pillar_pos,
@@ -150,7 +185,9 @@ class MazePlayScene:
                         # Draw Right Connection
                         if x + 1 < self.maze.width and self.maze.is_wall(x + 1, z):
                             h_slice_pos = rl.Vector3(
-                                float(x) + 1.0, SLICE_HEIGHT / 2.0, float(z) + 0.5
+                                float(x) * CELL_SCALE + CELL_SCALE,
+                                SLICE_HEIGHT / 2.0,
+                                float(z) * CELL_SCALE + CELL_SCALE / 2.0,
                             )
                             rl.draw_model_ex(
                                 wall_asset.model,
@@ -164,7 +201,9 @@ class MazePlayScene:
                         # Draw Bottom Connection
                         if z + 1 < self.maze.height and self.maze.is_wall(x, z + 1):
                             v_slice_pos = rl.Vector3(
-                                float(x) + 0.5, SLICE_HEIGHT / 2.0, float(z) + 1.0
+                                float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                                SLICE_HEIGHT / 2.0,
+                                float(z) * CELL_SCALE + CELL_SCALE,
                             )
                             rl.draw_model_ex(
                                 wall_asset.model,
@@ -211,10 +250,14 @@ class MazePlayScene:
             target = self.get_targeted_wall()
             if target:
                 tx, tz = target
-                highlight_pos = rl.Vector3(float(tx) + 0.5, 0.6, float(tz) + 0.5)
+                highlight_pos = rl.Vector3(
+                    float(tx) * CELL_SCALE + CELL_SCALE / 2.0,
+                    0.6,
+                    float(tz) * CELL_SCALE + CELL_SCALE / 2.0,
+                )
                 # Rule #1: Only highlight the wall that can be destructed
-                rl.draw_cube(highlight_pos, 1.0, 1.2, 1.0, rl.fade(rl.RED, 0.5))
-                rl.draw_cube_wires(highlight_pos, 1.0, 1.2, 1.0, rl.RED)
+                rl.draw_cube(highlight_pos, CELL_SCALE, 1.2, CELL_SCALE, rl.fade(rl.RED, 0.5))
+                rl.draw_cube_wires(highlight_pos, CELL_SCALE, 1.2, CELL_SCALE, rl.RED)
 
         rl.end_mode_3d()
 
@@ -264,6 +307,8 @@ class MazePlayScene:
         if self.maze is None:
             return
 
+        from .constants import CELL_SCALE
+
         max_map_size = 180
         cell_size = max_map_size // max(self.maze.width, self.maze.height)
         actual_width = cell_size * self.maze.width
@@ -284,29 +329,29 @@ class MazePlayScene:
                     )
         rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
-        dest_x = int(self.destination.x)
-        dest_z = int(self.destination.z)
+        dest_grid_x = int(self.destination.x / CELL_SCALE)
+        dest_grid_z = int(self.destination.z / CELL_SCALE)
         rl.draw_rectangle(
-            offset_x + dest_x * cell_size,
-            offset_y + dest_z * cell_size,
+            offset_x + dest_grid_x * cell_size,
+            offset_y + dest_grid_z * cell_size,
             cell_size,
             cell_size,
             rl.GOLD,
         )
 
         if self.axe_pos:
-            ax = int(self.axe_pos.x)
-            az = int(self.axe_pos.z)
+            axe_grid_x = int(self.axe_pos.x / CELL_SCALE)
+            axe_grid_z = int(self.axe_pos.z / CELL_SCALE)
             rl.draw_rectangle(
-                offset_x + ax * cell_size,
-                offset_y + az * cell_size,
+                offset_x + axe_grid_x * cell_size,
+                offset_y + axe_grid_z * cell_size,
                 cell_size,
                 cell_size,
                 rl.BLUE,
             )
 
-        px = int(self.player.position.x * cell_size)
-        pz = int(self.player.position.z * cell_size)
+        px = int((self.player.position.x / CELL_SCALE) * cell_size)
+        pz = int((self.player.position.z / CELL_SCALE) * cell_size)
         dir_len = 12
         dx = int(math.sin(self.player.yaw) * dir_len)
         dz = -int(math.cos(self.player.yaw) * dir_len)

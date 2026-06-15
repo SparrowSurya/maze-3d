@@ -24,7 +24,9 @@ class Scene(StrEnum):
 
 
 # Wall Geometry Constants
-PILLAR_SIZE = 0.32
-PILLAR_HEIGHT = 1.2
+CELL_SCALE = 2.0
+PILLAR_SIZE = 0.4
+PILLAR_HEIGHT = 1.1
 SLICE_THICKNESS = 0.2
 SLICE_HEIGHT = 1.0
+
