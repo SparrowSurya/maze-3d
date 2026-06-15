@@ -8,6 +8,8 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 - **Procedural Maze Generation:** Supports 5 distinct algorithms (Recursive Backtracker, Prim's, Kruskal's, Binary Tree, and Sidewinder), selectable from the main menu.
 - **Optimized Level Design:** Uses BFS to place the spawn and destination at the farthest possible points.
 - **3D World:**
+    - **Thin Wall Geometry:** Walls are rendered as central pillars with thin connecting slices, creating a less cramped and more detailed environment.
+    - **Scaled Grid System:** Logical maze cells are mapped to a larger world area based on a configurable scale, creating wider corridors and improved spatial depth.
     - Textured walls and ground.
     - 3D Camera with First-Person and Top-Down view modes.
 - **Navigation Aids:**
@@ -15,7 +17,7 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
     - **Minimap:** Opaque, toggleable map showing maze layout, player orientation, goal, and item locations.
     - **Crosshair:** Central red dot for precise navigation and raycast targeting.
 - **Strategic Mechanics:** 
-    - **Axe & Wall Destruction:** Collectible tool used for 3D raycast-based wall removal (non-boundary only). Highlights destructible walls in red when holding [X] (requires Axe).
+    - **Axe & Wall Destruction:** Collectible tool used for 3D raycast-based wall removal (non-boundary only). Highlights the targeted logical cell in red when holding [X] (requires Axe).
 - **Gameplay Loop:** Menu State -> Random spawn -> Resource Collection -> Strategic Exploration -> Goal Reached -> Win Screen.
 
 ## Technical Stack
@@ -23,7 +25,7 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 - **Graphics Library:** Raylib (via `pyray` bindings)
 - **Package Manager:** `uv`
 - **Linting & Formatting:** `ruff`
-- **Type Checking:** `pyright` (Strict Mode)
+- **Type Checking:** `pyright` (Strict Mode) - MUST be run for verification after every change.
 
 ## Project Structure
 - `way/`: Core package.

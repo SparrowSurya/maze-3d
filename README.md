@@ -8,6 +8,8 @@ In "The Way Out", you are challenged to navigate complex procedural mazes using 
 - **Procedural Maze Generation:** Supports 5 distinct algorithms (Recursive Backtracker, Prim's, Kruskal's, Binary Tree, and Sidewinder), selectable in the main menu to provide variety and puzzle complexity.
 - **Optimized Level Design:** Uses Breadth-First Search (BFS) to place the spawn and destination at the two farthest points in the maze, ensuring a maximum challenge for every run.
 - **3D World:**
+    - **Thin Wall Geometry:** Walls are rendered as central pillars with thin slices connecting neighbors, providing a modern and spacious aesthetic.
+    - **Scaled Grid System:** Logical maze cells are scaled to a larger world area, creating wide corridors and realistic wall proportions.
     - Textured walls and ground.
     - Immersive 3D Camera with First-Person and Top-Down movement.
 - **Strategic Tools:**

@@ -38,6 +38,9 @@ class Asset:
         texture = rl.load_texture(str(cls.BASE_PATH / name))
         model = rl.load_model_from_mesh(mesh)
 
+        rl.gen_texture_mipmaps(texture)
+        rl.set_texture_filter(texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
+
         if wrap is not None:
             rl.set_texture_wrap(texture, wrap)
 

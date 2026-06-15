@@ -147,16 +147,17 @@ class MazePlayScene:
 
         # Ground
         if ground_asset:
-            rl.draw_model(
-                ground_asset.model,
-                rl.Vector3(
-                    float(self.maze.width) * CELL_SCALE / 2.0,
-                    0.0,
-                    float(self.maze.height) * CELL_SCALE / 2.0,
-                ),
-                CELL_SCALE * 2.0,
-                rl.WHITE,
-            )
+            # Draw a grid of unit-sized planes to achieve tiling effect
+            # Each logical cell covers CELL_SCALE x CELL_SCALE area.
+            # We draw planes of 1.0x1.0 units.
+            for gz in range(int(self.maze.height * CELL_SCALE)):
+                for gx in range(int(self.maze.width * CELL_SCALE)):
+                    rl.draw_model(
+                        ground_asset.model,
+                        rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5),
+                        1.0,
+                        rl.WHITE,
+                    )
 
         # Walls
         if wall_asset:
