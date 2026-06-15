@@ -2,10 +2,13 @@
 This submodule contains the interface objects and types for the submodule.
 """
 
-from typing import Protocol
+from __future__ import annotations
+from typing import Protocol, TYPE_CHECKING
 
 from .constants import Scene
-from ..game.state import GameState
+
+if TYPE_CHECKING:
+    from ..game.state import GameState
 
 
 __all__ = (
@@ -15,6 +18,10 @@ __all__ = (
 
 class GameScene(Protocol):
     """Describes the scene in the game."""
+
+    def init(self, state: GameState) -> None:
+        """Initializes the scene with game state."""
+        ...
 
     def draw(self, state: GameState) -> None:
         """Draws the scene."""

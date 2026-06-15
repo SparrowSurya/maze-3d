@@ -4,9 +4,12 @@ This submodues contains game related objects.
 
 import pyray as rl
 
-from .state import GameState
+from .state import GameState, GameManager
 from ..maze import MazeAlgorithm
-from ..scene import GameScene, MainMenuScene, MazePlayScene, EndScene, Scene
+from ..scene import MainMenuScene, MazePlayScene, EndScene, Scene
+from ..scene.protocols import GameScene
+from ..asset import AssetManager, AssetType
+from ..scene.manager import SceneManager
 
 
 class Game:
@@ -15,88 +18,83 @@ class Game:
         self.height = 600
         self.title = "The Way Out - 3D Maze Game"
 
-        # Initialize placeholders for assets that will be loaded in run()
+        # Initialize managers
+        self.asset_manager = AssetManager()
+        self.scene_manager: SceneManager = None  # type: ignore
+        self.game_manager: GameManager = None  # type: ignore
+
+        # Placeholder for GameState
         self.state: GameState = None  # type: ignore
 
-        # Scene management
-        self.current_scene_type: Scene = Scene.MAIN_MENU
-        self.current_scene: GameScene = MainMenuScene()
+    def _initialize_scenes(self) -> None:
+        """Initialize all game scenes and the scene manager."""
+        scenes: dict[Scene, GameScene] = {
+            Scene.MAIN_MENU: MainMenuScene(),
+            Scene.MAZE_PLAY: MazePlayScene(),
+            Scene.END_SCREEN: EndScene(),
+        }
+        self.scene_manager = SceneManager(data=scenes, initial=Scene.MAIN_MENU)
+        self.game_manager = GameManager(asset=self.asset_manager, scene=self.scene_manager)
 
     def run(self) -> None:
         rl.init_window(self.width, self.height, self.title)
         rl.set_target_fps(60)
 
-        # Load Wall Assets
-        wall_texture = rl.load_texture("assets/wall_texture.png")
-        mesh_cube = rl.gen_mesh_cube(1.0, 1.0, 1.0)
-        wall_model = rl.load_model_from_mesh(mesh_cube)
-        if wall_model and wall_texture:
-            rl.set_material_texture(
-                wall_model.materials[0],
-                rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
-                wall_texture,
-            )
+        # Load Wall Assets via AssetManager
+        self.asset_manager.load_asset(
+            "wall.png",
+            AssetType.WALL,
+            rl.gen_mesh_cube(1.0, 1.0, 1.0),
+            material=rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
+        )
 
-        # Load Grass Assets
-        grass_texture = rl.load_texture("assets/grass_texture.png")
-        if grass_texture:
-            rl.set_texture_wrap(grass_texture, rl.TEXTURE_WRAP_REPEAT)  # type: ignore
+        # Load Grass Assets via AssetManager
+        self.asset_manager.load_asset(
+            "grass.png",
+            AssetType.GRASS,
+            rl.gen_mesh_plane(40.0, 40.0, 1, 1),
+            wrap=rl.TEXTURE_WRAP_REPEAT,  # type: ignore
+            material=rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
+        )
 
-        # We generate a generic ground model
-        mesh_plane = rl.gen_mesh_plane(40.0, 40.0, 1, 1)
-        ground_model = rl.load_model_from_mesh(mesh_plane)
-        if ground_model and grass_texture:
-            rl.set_material_texture(
-                ground_model.materials[0],
-                rl.MATERIAL_MAP_DIFFUSE,  # type: ignore
-                grass_texture,
-            )
+        # Initialize SceneManager and GameManager FIRST
+        self._initialize_scenes()
 
-        # Initialize GameState with loaded assets
+        # Initialize GameState with managers
         self.state = GameState(
             width=self.width,
             height=self.height,
-            selected_algo=MazeAlgorithm.DFS,
-            wall_texture=wall_texture,
-            wall_model=wall_model,
-            grass_texture=grass_texture,
-            ground_model=ground_model,
+            algo=MazeAlgorithm.DFS,
+            manager=self.game_manager,
         )
+
+        # Initialize the initial scene
+        self.scene_manager.get_scene(self.scene_manager.current).init(self.state)
 
         while not rl.window_should_close():
             dt = rl.get_frame_time()
+            current_scene = self.scene_manager.get_scene(self.scene_manager.current)
 
             # Update
-            next_scene_type = self.current_scene.update(dt, self.state)
+            next_scene_type = current_scene.update(dt, self.state)
 
             # Handle Scene Transitions
-            if next_scene_type != self.current_scene_type:
-                self.transition_to(next_scene_type)
+            if next_scene_type != self.scene_manager.current:
+                new_scene = self.scene_manager.get_scene(next_scene_type)
+                new_scene.init(self.state)
+                self.scene_manager.set_scene(next_scene_type)
 
             # Draw
             rl.begin_drawing()
             rl.clear_background(rl.SKYBLUE)
 
-            self.current_scene.draw(self.state)
+            current_scene = self.scene_manager.get_scene(self.scene_manager.current)
+            current_scene.draw(self.state)
 
             rl.draw_fps(10, self.height - 30)
             rl.end_drawing()
 
         # Unload assets
-        rl.unload_texture(wall_texture)
-        rl.unload_model(wall_model)
-        rl.unload_texture(grass_texture)
-        rl.unload_model(ground_model)
+        self.asset_manager.unload_all()
 
         rl.close_window()
-
-    def transition_to(self, scene_type: Scene) -> None:
-        """Handles the logic of switching between scenes."""
-        if scene_type == Scene.MAIN_MENU:
-            self.current_scene = MainMenuScene()
-        elif scene_type == Scene.MAZE_PLAY:
-            self.current_scene = MazePlayScene(self.state)
-        elif scene_type == Scene.END_SCREEN:
-            self.current_scene = EndScene()
-
-        self.current_scene_type = scene_type

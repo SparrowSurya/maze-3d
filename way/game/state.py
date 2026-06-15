@@ -3,15 +3,17 @@ This submodule contains the game state related objects.
 """
 
 
+from __future__ import annotations
 from dataclasses import dataclass
 
-import pyray as rl
-
+from ..asset import AssetManager
 from ..maze import MazeAlgorithm
+from ..scene.manager import SceneManager
 
 
 __all__ = (
     "GameState",
+    "GameManager",
 )
 
 
@@ -21,10 +23,14 @@ class GameState:
 
     width: int
     height: int
-    selected_algo: MazeAlgorithm
+    algo: MazeAlgorithm
 
-    # Graphical Assets
-    wall_texture: rl.Texture
-    wall_model: rl.Model
-    grass_texture: rl.Texture
-    ground_model: rl.Model
+    manager: GameManager
+
+
+@dataclass
+class GameManager:
+    """Contains delegate manager for various objects."""
+
+    asset: AssetManager
+    scene: SceneManager

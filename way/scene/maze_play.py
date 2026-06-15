@@ -2,14 +2,19 @@
 This submodule contains the maze play scene.
 """
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import math
 
 import pyray as rl
 
 from .constants import Scene
-from ..game.state import GameState
 from ..maze import Maze, generate_maze
 from ..player import Player, ViewMode
+from ..asset import AssetType
+
+if TYPE_CHECKING:
+    from ..game.state import GameState
 
 
 __all__ = (
@@ -20,15 +25,16 @@ __all__ = (
 class MazePlayScene:
     """Describes the maze scene in the game."""
 
-    def __init__(self, state: GameState) -> None:
-        self.maze: Maze = generate_maze(25, 25, algorithm=state.selected_algo)
+    def __init__(self) -> None:
+        self.maze: Maze | None = None
         self.player = Player(rl.Vector3(0, 0, 0), 0.0)
         self.destination: rl.Vector3 = rl.Vector3(0, 0, 0)
         self.axe_pos: rl.Vector3 | None = None
         self.show_minimap: bool = False
-        self.init_maze()
 
-    def init_maze(self) -> None:
+    def init(self, state: GameState) -> None:
+        """Initializes the maze and player position."""
+        self.maze = generate_maze(25, 25, algorithm=state.algo)
         # Find two farthest points
         p1, p2 = self.maze.find_farthest_points()
         spawn_x, spawn_z = p1
@@ -68,6 +74,9 @@ class MazePlayScene:
 
     def get_targeted_wall(self) -> tuple[int, int] | None:
         """Finds the wall the player is looking at using raycasting."""
+        if self.maze is None:
+            return None
+
         # Calculate targeting ray based on player's yaw and pitch (independent of camera view)
         ray_start = self.player.position
         forward = rl.Vector3(
@@ -100,26 +109,34 @@ class MazePlayScene:
         return hit_cell
 
     def draw(self, state: GameState) -> None:
+        if self.maze is None:
+            return
+
         rl.begin_mode_3d(self.player.get_camera())
 
+        ground_asset = state.manager.asset.get_asset(AssetType.GRASS)
+        wall_asset = state.manager.asset.get_asset(AssetType.WALL)
+
         # Ground
-        rl.draw_model(
-            state.ground_model,
-            rl.Vector3(float(self.maze.width) / 2, 0.0, float(self.maze.height) / 2),
-            1.0,
-            rl.WHITE,
-        )
+        if ground_asset:
+            rl.draw_model(
+                ground_asset.model,
+                rl.Vector3(float(self.maze.width) / 2, 0.0, float(self.maze.height) / 2),
+                1.0,
+                rl.WHITE,
+            )
 
         # Walls
-        for z in range(self.maze.height):
-            for x in range(self.maze.width):
-                if self.maze.is_wall(x, z):
-                    rl.draw_model(
-                        state.wall_model,
-                        rl.Vector3(float(x) + 0.5, 0.5, float(z) + 0.5),
-                        1.0,
-                        rl.WHITE,
-                    )
+        if wall_asset:
+            for z in range(self.maze.height):
+                for x in range(self.maze.width):
+                    if self.maze.is_wall(x, z):
+                        rl.draw_model(
+                            wall_asset.model,
+                            rl.Vector3(float(x) + 0.5, 0.5, float(z) + 0.5),
+                            1.0,
+                            rl.WHITE,
+                        )
 
         # Destination (Gold Pillar)
         rl.draw_cube(self.destination, 0.5, 2.0, 0.5, rl.GOLD)
@@ -153,7 +170,7 @@ class MazePlayScene:
             )
 
         # Targeting Highlight (Rule #3: available in both views)
-        if rl.is_key_down(rl.KeyboardKey.KEY_X):
+        if self.player.axe_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
             target = self.get_targeted_wall()
             if target:
                 tx, tz = target
@@ -165,7 +182,7 @@ class MazePlayScene:
         rl.end_mode_3d()
 
         # HUD
-        rl.draw_text(f"Algorithm: {state.selected_algo.name}", 10, 10, 20, rl.BLACK)
+        rl.draw_text(f"Algorithm: {state.algo.name}", 10, 10, 20, rl.BLACK)
         rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
         rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
 
@@ -175,7 +192,8 @@ class MazePlayScene:
         # Crosshair
         if rl.is_key_down(rl.KeyboardKey.KEY_X):
             target_wall = self.get_targeted_wall()
-            crosshair_color = rl.RED if target_wall else rl.GRAY
+            # Rule #3: Only turn red if target is valid AND player has axe
+            crosshair_color = rl.RED if (target_wall and self.player.axe_count > 0) else rl.GRAY
             rl.draw_circle(state.width // 2, state.height // 2, 4, crosshair_color)
         else:
             rl.draw_circle(state.width // 2, state.height // 2, 2, rl.RED)
@@ -206,6 +224,9 @@ class MazePlayScene:
         rl.draw_text("W", compass_x - 32, compass_y - 5, 10, rl.BLACK)
 
     def draw_minimap(self, state: GameState) -> None:
+        if self.maze is None:
+            return
+
         max_map_size = 180
         cell_size = max_map_size // max(self.maze.width, self.maze.height)
         actual_width = cell_size * self.maze.width
@@ -261,6 +282,8 @@ class MazePlayScene:
         rl.draw_circle(offset_x + px, offset_y + pz, 4, rl.RED)
 
     def update(self, dt: float, state: GameState) -> Scene:
+        assert self.maze is not None
+
         is_shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(
             rl.KeyboardKey.KEY_RIGHT_SHIFT
         )

@@ -2,11 +2,16 @@
 This submodule contains the main menu scene.
 """
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import pyray as rl
 
 from .constants import Scene
 from ..maze import MazeAlgorithm
-from ..game.state import GameState
+
+if TYPE_CHECKING:
+    from ..game.state import GameState
 
 
 __all__ = (
@@ -16,6 +21,10 @@ __all__ = (
 
 class MainMenuScene:
     """Main Menu scene in the game."""
+
+    def init(self, state: GameState) -> None:
+        """Initializes the scene."""
+        pass
 
     def draw(self, state: GameState) -> None:
         rl.draw_rectangle(0, 0, state.width, state.height, rl.fade(rl.BLACK, 0.8))
@@ -47,19 +56,19 @@ class MainMenuScene:
 
     def update(self, dt: float, state: GameState) -> Scene:
         if rl.is_key_pressed(rl.KeyboardKey.KEY_ONE):  # type: ignore
-            state.selected_algo = MazeAlgorithm.DFS
+            state.algo = MazeAlgorithm.DFS
             return Scene.MAZE_PLAY
         if rl.is_key_pressed(rl.KeyboardKey.KEY_TWO):  # type: ignore
-            state.selected_algo = MazeAlgorithm.PRIMS
+            state.algo = MazeAlgorithm.PRIMS
             return Scene.MAZE_PLAY
         if rl.is_key_pressed(rl.KeyboardKey.KEY_THREE):  # type: ignore
-            state.selected_algo = MazeAlgorithm.KRUSKALS
+            state.algo = MazeAlgorithm.KRUSKALS
             return Scene.MAZE_PLAY
         if rl.is_key_pressed(rl.KeyboardKey.KEY_FOUR):  # type: ignore
-            state.selected_algo = MazeAlgorithm.BINARY_TREE
+            state.algo = MazeAlgorithm.BINARY_TREE
             return Scene.MAZE_PLAY
         if rl.is_key_pressed(rl.KeyboardKey.KEY_FIVE):  # type: ignore
-            state.selected_algo = MazeAlgorithm.SIDEWINDER
+            state.algo = MazeAlgorithm.SIDEWINDER
             return Scene.MAZE_PLAY
 
         return Scene.MAIN_MENU
