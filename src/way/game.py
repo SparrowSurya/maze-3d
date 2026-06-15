@@ -17,7 +17,7 @@ class Game:
     def __init__(self) -> None:
         self.width = 800
         self.height = 600
-        self.title = "Way - 3D Maze Game"
+        self.title = "The Way Out - 3D Maze Game"
 
         self.wall_texture: rl.Texture2D | None = None  # type: ignore
         self.wall_model: rl.Model | None = None  # type: ignore
@@ -307,7 +307,7 @@ class Game:
 
     def draw_menu(self) -> None:
         rl.draw_rectangle(0, 0, self.width, self.height, rl.fade(rl.BLACK, 0.8))
-        rl.draw_text("WAY - CHOOSE ALGORITHM", self.width // 2 - 200, 100, 30, rl.GOLD)
+        rl.draw_text("THE WAY OUT - CHOOSE ALGORITHM", self.width // 2 - 250, 100, 30, rl.GOLD)
 
         algos = [
             "1. Recursive Backtracker (DFS)",
@@ -333,7 +333,7 @@ class Game:
         if self.state == GameState.WON:
             rl.draw_rectangle(0, 0, self.width, self.height, rl.fade(rl.BLACK, 0.5))
             rl.draw_text(
-                "YOU FOUND THE WAY!", self.width // 2 - 150, self.height // 2 - 40, 30, rl.GOLD
+                "YOU FOUND THE WAY OUT!", self.width // 2 - 180, self.height // 2 - 40, 30, rl.GOLD
             )
             rl.draw_text(
                 "Press [ENTER] or [R] to Main Menu",
@@ -453,3 +453,4 @@ class Game:
         # Draw player dot
         rl.draw_circle(offset_x + px, offset_y + pz, 4, rl.RED)
         rl.draw_circle_lines(offset_x + px, offset_y + pz, 4, rl.WHITE)
+
