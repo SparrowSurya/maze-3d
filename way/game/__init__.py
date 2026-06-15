@@ -1,7 +1,12 @@
+"""
+This submodues contains game related objects.
+"""
+
 import pyray as rl
 
-from .maze import MazeAlgorithm
-from .scene import GameScene, GameState, MainMenu, MazePlayScene, EndScene, Scene
+from .state import GameState
+from ..maze import MazeAlgorithm
+from ..scene import GameScene, MainMenuScene, MazePlayScene, EndScene, Scene
 
 
 class Game:
@@ -15,7 +20,7 @@ class Game:
 
         # Scene management
         self.current_scene_type: Scene = Scene.MAIN_MENU
-        self.current_scene: GameScene = MainMenu()
+        self.current_scene: GameScene = MainMenuScene()
 
     def run(self) -> None:
         rl.init_window(self.width, self.height, self.title)
@@ -88,7 +93,7 @@ class Game:
     def transition_to(self, scene_type: Scene) -> None:
         """Handles the logic of switching between scenes."""
         if scene_type == Scene.MAIN_MENU:
-            self.current_scene = MainMenu()
+            self.current_scene = MainMenuScene()
         elif scene_type == Scene.MAZE_PLAY:
             self.current_scene = MazePlayScene(self.state)
         elif scene_type == Scene.END_SCREEN:
