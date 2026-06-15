@@ -34,7 +34,6 @@ class Game:
         self.player: Player = Player(rl.Vector3(0, 0, 0), 0.0)
         self.destination: rl.Vector3 = rl.Vector3(0, 0, 0)
         self.is_won: bool = False
-        self.axes_count: int = 0
         self.axe_pos: rl.Vector3 | None = None
 
     def init_game(self, algo: MazeAlgorithm | None = None) -> None:
@@ -67,7 +66,6 @@ class Game:
         self.destination = rl.Vector3(float(dest_x) + 0.5, 0.5, float(dest_z) + 0.5)
 
         # Spawn Axe (collectible)
-        self.axes_count = 0
         self.axe_pos = None
 
         # Find a suitable spot for the axe (not too close to spawn or destination)
@@ -155,19 +153,19 @@ class Game:
             if self.axe_pos:
                 dist_axe = rl.vector3_distance(self.player.position, self.axe_pos)
                 if dist_axe < 0.8:
-                    self.axes_count += 1
+                    self.player.axe_count += 1
                     self.axe_pos = None
 
             # Wall Destruction Logic
             is_ctrl = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_CONTROL) or rl.is_key_down(
                 rl.KeyboardKey.KEY_RIGHT_CONTROL
             )
-            if self.axes_count > 0 and is_ctrl and rl.is_key_pressed(rl.KeyboardKey.KEY_X):
+            if self.player.axe_count > 0 and is_ctrl and rl.is_key_pressed(rl.KeyboardKey.KEY_X):
                 target = self.get_targeted_wall()
                 if target:
                     tx, tz = target
                     self.maze.grid[tz][tx] = 0
-                    self.axes_count -= 1
+                    self.player.axe_count -= 1
 
             # Toggle minimap with M
             if rl.is_key_pressed(rl.KeyboardKey.KEY_M):  # type: ignore
@@ -290,7 +288,7 @@ class Game:
                 rl.draw_cube_wires(axe_draw_pos, 0.2, 0.2, 0.2, rl.DARKBLUE)
 
             # Targeting Highlight
-            if self.axes_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
+            if self.player.axe_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
                 target = self.get_targeted_wall()
                 if target:
                     tx, tz = target
@@ -347,8 +345,8 @@ class Game:
             rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
             rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
 
-            if self.axes_count > 0:
-                rl.draw_text(f"Axe: {self.axes_count}", 10, 80, 15, rl.BLUE)
+            if self.player.axe_count > 0:
+                rl.draw_text(f"Axe: {self.player.axe_count}", 10, 80, 15, rl.BLUE)
 
             # Draw a smol red dot in the center of the screen
             dot_radius = 3

@@ -1,4 +1,8 @@
-from enum import Enum, auto
+"""
+This modules contains the player related classes.
+"""
+
+from enum import StrEnum, auto
 import math
 from dataclasses import dataclass, field
 
@@ -7,13 +11,17 @@ import pyray as rl
 from .maze import Maze
 
 
-class ViewMode(Enum):
+class ViewMode(StrEnum):
+    """Describes the player's view in the game."""
+
     FIRST_PERSON = auto()
     TOP_DOWN = auto()
 
 
 @dataclass
 class Player:
+    """Describes the player in the game."""
+
     position: rl.Vector3
     yaw: float  # Rotation in radians
     pitch: float = 0.0
@@ -29,10 +37,13 @@ class Player:
     radius: float = 0.3  # Cylindrical radius
     height: float = 0.8
 
+    axe_count: int = 0
+
     view_mode: ViewMode = ViewMode.FIRST_PERSON
     TOP_DOWN_HEIGHT: float = 12.0
 
     def get_camera(self) -> rl.Camera3D:
+        """Provides the camers as per player's presepective view."""
         if self.view_mode == ViewMode.FIRST_PERSON:
             target = rl.Vector3(
                 self.position.x + math.sin(self.yaw),
@@ -90,6 +101,7 @@ class Player:
         return False
 
     def update(self, delta_time: float, maze: Maze) -> None:
+        """Updates the player in the game."""
         # Rotation
         if rl.is_key_down(rl.KeyboardKey.KEY_LEFT):  # type: ignore
             self.yaw -= self.rotation_speed * delta_time
@@ -99,7 +111,7 @@ class Player:
         # Movement
         # forward vector: x = sin(yaw), z = -cos(yaw)
         forward = rl.Vector3(math.sin(self.yaw), 0.0, -math.cos(self.yaw))
-        
+
         move_vec = rl.Vector3(0, 0, 0)
         if rl.is_key_down(rl.KeyboardKey.KEY_UP):  # type: ignore
             move_vec.x += forward.x * self.move_speed * delta_time
@@ -135,7 +147,7 @@ class Player:
             # 2. Try sliding along X
             if not self._check_collision(new_x, self.position.z, maze):
                 self.position.x = new_x
-            
+
             # 3. Try sliding along Z
             # (Note: we check against current self.position.x which might have been updated)
             if not self._check_collision(self.position.x, new_z, maze):
