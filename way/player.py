@@ -78,27 +78,94 @@ class Player:
             )
 
     def _check_collision(self, px: float, pz: float, maze: Maze) -> bool:
-        """Checks if a cylinder at (px, pz) with self.radius intersects any maze walls."""
-        # Use floor to ensure we check the correct grid cells, even for near-boundary values
-        min_x = int(math.floor(px - self.radius))
-        max_x = int(math.floor(px + self.radius))
-        min_z = int(math.floor(pz - self.radius))
-        max_z = int(math.floor(pz + self.radius))
+        """Checks if a cylinder at (px, pz) intersects any thin maze walls."""
+        from .scene.constants import PILLAR_SIZE, SLICE_THICKNESS
 
-        for i in range(min_x, max_x + 1):
-            for j in range(min_z, max_z + 1):
+        # Check a 3x3 grid around the player
+        grid_x = int(math.floor(px))
+        grid_z = int(math.floor(pz))
+
+        half_pillar = PILLAR_SIZE / 2.0
+        half_slice = SLICE_THICKNESS / 2.0
+
+        for i in range(grid_x - 1, grid_x + 2):
+            for j in range(grid_z - 1, grid_z + 2):
                 if maze.is_wall(i, j):
-                    # Circle vs AABB (i, j, 1, 1) collision
-                    # Find closest point on the wall AABB to the circle center
-                    closest_x = max(float(i), min(px, float(i) + 1.0))
-                    closest_z = max(float(j), min(pz, float(j) + 1.0))
-
-                    # Calculate distance from circle center to this closest point
-                    dx = px - closest_x
-                    dz = pz - closest_z
-                    if (dx * dx + dz * dz) < (self.radius * self.radius):
+                    # 1. Pillar Collision
+                    # AABB: (i+0.5-half_pillar, j+0.5-half_pillar) to
+                    # (i+0.5+half_pillar, j+0.5+half_pillar)
+                    if self._check_circle_aabb_collision(
+                        px,
+                        pz,
+                        float(i) + 0.5 - half_pillar,
+                        float(j) + 0.5 - half_pillar,
+                        float(i) + 0.5 + half_pillar,
+                        float(j) + 0.5 + half_pillar,
+                    ):
                         return True
+
+                    # 2. Right Slice Collision
+                    if maze.is_wall(i + 1, j):
+                        # AABB: (i + 0.5, j + 0.5 - half_slice) to (i + 1.5, j + 0.5 + half_slice)
+                        if self._check_circle_aabb_collision(
+                            px,
+                            pz,
+                            float(i) + 0.5,
+                            float(j) + 0.5 - half_slice,
+                            float(i) + 1.5,
+                            float(j) + 0.5 + half_slice,
+                        ):
+                            return True
+
+                    # 3. Bottom Slice Collision
+                    if maze.is_wall(i, j + 1):
+                        # AABB: (i + 0.5 - half_slice, j + 0.5) to (i + 0.5 + half_slice, j + 1.5)
+                        if self._check_circle_aabb_collision(
+                            px,
+                            pz,
+                            float(i) + 0.5 - half_slice,
+                            float(j) + 0.5,
+                            float(i) + 0.5 + half_slice,
+                            float(j) + 1.5,
+                        ):
+                            return True
+
+                    # 4. Left Slice Collision (needed because we might enter from the right)
+                    if maze.is_wall(i - 1, j):
+                        # AABB: (i - 0.5, j + 0.5 - half_slice) to (i + 0.5, j + 0.5 + half_slice)
+                        if self._check_circle_aabb_collision(
+                            px,
+                            pz,
+                            float(i) - 0.5,
+                            float(j) + 0.5 - half_slice,
+                            float(i) + 0.5,
+                            float(j) + 0.5 + half_slice,
+                        ):
+                            return True
+
+                    # 5. Top Slice Collision
+                    if maze.is_wall(i, j - 1):
+                        # AABB: (i + 0.5 - half_slice, j - 0.5) to (i + 0.5 + half_slice, j + 0.5)
+                        if self._check_circle_aabb_collision(
+                            px,
+                            pz,
+                            float(i) + 0.5 - half_slice,
+                            float(j) - 0.5,
+                            float(i) + 0.5 + half_slice,
+                            float(j) + 0.5,
+                        ):
+                            return True
         return False
+
+    def _check_circle_aabb_collision(
+        self, px: float, pz: float, min_x: float, min_z: float, max_x: float, max_z: float
+    ) -> bool:
+        """Helper to check circle vs AABB collision."""
+        closest_x = max(min_x, min(px, max_x))
+        closest_z = max(min_z, min(pz, max_z))
+        dx = px - closest_x
+        dz = pz - closest_z
+        return (dx * dx + dz * dz) < (self.radius * self.radius)
 
     def update(self, delta_time: float, maze: Maze) -> None:
         """Updates the player in the game."""

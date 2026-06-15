@@ -8,7 +8,7 @@ import math
 
 import pyray as rl
 
-from .constants import Scene
+from .constants import Scene, PILLAR_SIZE, PILLAR_HEIGHT, SLICE_THICKNESS, SLICE_HEIGHT
 from ..maze import Maze, generate_maze
 from ..player import Player, ViewMode
 from ..asset import AssetType
@@ -128,15 +128,52 @@ class MazePlayScene:
 
         # Walls
         if wall_asset:
+
+            pillar_scale = rl.Vector3(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
+            h_slice_scale = rl.Vector3(1.0, SLICE_HEIGHT, SLICE_THICKNESS)
+            v_slice_scale = rl.Vector3(SLICE_THICKNESS, SLICE_HEIGHT, 1.0)
+
             for z in range(self.maze.height):
                 for x in range(self.maze.width):
                     if self.maze.is_wall(x, z):
-                        rl.draw_model(
+                        # Draw Central Pillar
+                        pillar_pos = rl.Vector3(float(x) + 0.5, PILLAR_HEIGHT / 2.0, float(z) + 0.5)
+                        rl.draw_model_ex(
                             wall_asset.model,
-                            rl.Vector3(float(x) + 0.5, 0.5, float(z) + 0.5),
-                            1.0,
+                            pillar_pos,
+                            rl.Vector3(0, 1, 0),
+                            0.0,
+                            pillar_scale,
                             rl.WHITE,
                         )
+
+                        # Draw Right Connection
+                        if x + 1 < self.maze.width and self.maze.is_wall(x + 1, z):
+                            h_slice_pos = rl.Vector3(
+                                float(x) + 1.0, SLICE_HEIGHT / 2.0, float(z) + 0.5
+                            )
+                            rl.draw_model_ex(
+                                wall_asset.model,
+                                h_slice_pos,
+                                rl.Vector3(0, 1, 0),
+                                0.0,
+                                h_slice_scale,
+                                rl.WHITE,
+                            )
+
+                        # Draw Bottom Connection
+                        if z + 1 < self.maze.height and self.maze.is_wall(x, z + 1):
+                            v_slice_pos = rl.Vector3(
+                                float(x) + 0.5, SLICE_HEIGHT / 2.0, float(z) + 1.0
+                            )
+                            rl.draw_model_ex(
+                                wall_asset.model,
+                                v_slice_pos,
+                                rl.Vector3(0, 1, 0),
+                                0.0,
+                                v_slice_scale,
+                                rl.WHITE,
+                            )
 
         # Destination (Gold Pillar)
         rl.draw_cube(self.destination, 0.5, 2.0, 0.5, rl.GOLD)
@@ -174,10 +211,10 @@ class MazePlayScene:
             target = self.get_targeted_wall()
             if target:
                 tx, tz = target
-                highlight_pos = rl.Vector3(float(tx) + 0.5, 0.5, float(tz) + 0.5)
+                highlight_pos = rl.Vector3(float(tx) + 0.5, 0.6, float(tz) + 0.5)
                 # Rule #1: Only highlight the wall that can be destructed
-                rl.draw_cube(highlight_pos, 1.1, 1.1, 1.1, rl.fade(rl.RED, 0.7))
-                rl.draw_cube_wires(highlight_pos, 1.1, 1.1, 1.1, rl.RED)
+                rl.draw_cube(highlight_pos, 1.0, 1.2, 1.0, rl.fade(rl.RED, 0.5))
+                rl.draw_cube_wires(highlight_pos, 1.0, 1.2, 1.0, rl.RED)
 
         rl.end_mode_3d()
 
