@@ -42,7 +42,7 @@ class MazePlayScene:
     def init(self, state: GameState) -> None:
         from .constants import CELL_SCALE
 
-        self.maze = generate_maze(25, 25, algorithm=state.algo)
+        self.maze = generate_maze(40, 40, algorithm=state.algo)
         # Find two farthest points
         p1, p2 = self.maze.find_farthest_points()
         spawn_x, spawn_z = p1
@@ -307,8 +307,6 @@ class MazePlayScene:
         if self.maze is None:
             return
 
-        from .constants import CELL_SCALE
-
         max_map_size = 180
         cell_size = max_map_size // max(self.maze.width, self.maze.height)
         actual_width = cell_size * self.maze.width
@@ -320,22 +318,26 @@ class MazePlayScene:
         for z in range(self.maze.height):
             for x in range(self.maze.width):
                 if self.maze.is_wall(x, z):
-                    rl.draw_rectangle(
-                        offset_x + x * cell_size,
-                        offset_y + z * cell_size,
-                        cell_size,
-                        cell_size,
-                        rl.GRAY,
-                    )
+                    # Calculate center of the minimap cell
+                    cx = offset_x + x * cell_size + cell_size // 2
+                    cz = offset_y + z * cell_size + cell_size // 2
+
+                    # Draw Right Connection if neighbor is also a wall
+                    if x + 1 < self.maze.width and self.maze.is_wall(x + 1, z):
+                        rl.draw_line(cx, cz, cx + cell_size, cz, rl.GRAY)
+
+                    # Draw Bottom Connection if neighbor is also a wall
+                    if z + 1 < self.maze.height and self.maze.is_wall(x, z + 1):
+                        rl.draw_line(cx, cz, cx, cz + cell_size, rl.GRAY)
         rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
         dest_grid_x = int(self.destination.x / CELL_SCALE)
         dest_grid_z = int(self.destination.z / CELL_SCALE)
         rl.draw_rectangle(
-            offset_x + dest_grid_x * cell_size,
-            offset_y + dest_grid_z * cell_size,
-            cell_size,
-            cell_size,
+            offset_x + dest_grid_x * cell_size + cell_size // 4,
+            offset_y + dest_grid_z * cell_size + cell_size // 4,
+            max(3, cell_size // 2),
+            max(3, cell_size // 2),
             rl.GOLD,
         )
 
@@ -343,10 +345,10 @@ class MazePlayScene:
             axe_grid_x = int(self.axe_pos.x / CELL_SCALE)
             axe_grid_z = int(self.axe_pos.z / CELL_SCALE)
             rl.draw_rectangle(
-                offset_x + axe_grid_x * cell_size,
-                offset_y + axe_grid_z * cell_size,
-                cell_size,
-                cell_size,
+                offset_x + axe_grid_x * cell_size + cell_size // 4,
+                offset_y + axe_grid_z * cell_size + cell_size // 4,
+                max(3, cell_size // 2),
+                max(3, cell_size // 2),
                 rl.BLUE,
             )
 
@@ -358,10 +360,10 @@ class MazePlayScene:
         rl.draw_line_ex(
             rl.Vector2(float(offset_x + px), float(offset_y + pz)),
             rl.Vector2(float(offset_x + px + dx), float(offset_y + pz + dz)),
-            2,
-            rl.RED,
+            1,
+            rl.YELLOW,
         )
-        rl.draw_circle(offset_x + px, offset_y + pz, 4, rl.RED)
+        rl.draw_circle(offset_x + px, offset_y + pz, 3, rl.RED)
 
     def update(self, dt: float, state: GameState) -> Scene:
         assert self.maze is not None
