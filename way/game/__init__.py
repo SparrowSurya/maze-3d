@@ -4,9 +4,10 @@ This submodule contains game related objects.
 
 import pyray as rl
 
-from .state import GameState, GameManager
-from ..scene import MainMenuScene, GamePlayScene, GameEndScene, Scene
+from .state import GameState, GameManager, GameDebug
 from ..asset import AssetManager, AssetType
+from ..debug.scene import MainMenuSceneDebug, GamePlaySceneDebug, GameEndSceneDebug
+from ..scene import MainMenuScene, GamePlayScene, GameEndScene, Scene
 from ..scene.manager import SceneManager
 
 
@@ -18,12 +19,21 @@ class Game:
     asset management, scene management, and the main game loop.
     """
 
-    def __init__(self, width: int, height: int, title: str) -> None:
+    __slots__ = ("state",)
+
+    def __init__(self, width: int, height: int, title: str, *, debug: bool = False) -> None:
         self.state = GameState(
             width=width,
             height=height,
             title=title,
             fps=60,
+            debug=GameDebug(
+                scene={
+                    Scene.MAIN_MENU: MainMenuSceneDebug(),
+                    Scene.GAME_PLAY: GamePlaySceneDebug(),
+                    Scene.GAME_END: GameEndSceneDebug(),
+                },
+            ) if debug else None,
             manager=GameManager(
                 asset=AssetManager(),
                 scene=SceneManager({
@@ -77,17 +87,32 @@ class Game:
         scene_manager = self.state.manager.scene
         scene_manager.get_scene(scene_manager.current).init(self.state)
 
+        debug = self.state.debug
+
         while not rl.window_should_close():
             dt = rl.get_frame_time()
             current_scene = scene_manager.get_scene(scene_manager.current)
+            debug_scene = None if debug is None else debug.scene.get(scene_manager.current)
 
+            # Scene update (optionally with debug)
             next_scene_type = current_scene.update(dt, self.state)
+            if debug_scene:
+                debug_next_scene_type = debug_scene.update(dt, self.state)
+                if debug_next_scene_type:
+                    next_scene_type = debug_next_scene_type
 
             # Scene Transition
             if next_scene_type != scene_manager.current:
                 new_scene = scene_manager.get_scene(next_scene_type)
                 new_scene.init(self.state)
                 scene_manager.set_scene(next_scene_type)
+                new_debug_scene = None if not debug else debug.scene.get(next_scene_type)
+                if new_debug_scene:
+                    new_debug_scene.init(self.state)
+
+            # Toggle scene debug
+            if debug and rl.is_key_pressed(rl.KeyboardKey.KEY_F3):
+                debug.view_scene = not debug.view_scene
 
             rl.begin_texture_mode(target)
             rl.clear_background(rl.SKYBLUE)
@@ -109,6 +134,12 @@ class Game:
                 0.0,
                 rl.WHITE,
             )
+
+            # Debug window
+            if debug and debug_scene and debug.view_scene:
+                rl.gui_window_box(rl.Rectangle(10, 10, 200, 150), "DEBUG PANEL")
+                debug_scene.draw(self.state)
+
             rl.end_drawing()
 
         self.state.manager.asset.unload_all()

@@ -19,7 +19,7 @@ select = ["E", "F", "I", "N", "UP", "ANN"]
 ignore = ["I001"]
 
 [tool.pyright]
-include = ["src"]
+include = ["way"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false

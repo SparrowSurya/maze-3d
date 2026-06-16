@@ -39,17 +39,29 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 - `assets/`: Game textures (brick and grass).
 - `main.py`: Root entry point for `uv run`.
 
+## Code Quality
+
+### Do's
+- Always use `pyray` provided class for defining `raylib` C like constant values.
+- Always provide documentation to class, methods and functions.
+
+### Don't
+- Do not use `# type: ignore` if type checking or linitng do not shows any error.
+- Do not use import statements inside functions.
+- Do not provide documentation on class method or function which are overloading or are adhering to `Protocol` execpt parent protocol class.
+
+
 ## Controls
-- **Up/Down Arrows:** Move forward/backward.
-- **Left/Right Arrows:** Rotate camera.
-- **[SPACE]:** Jump.
-- **[M]:** Toggle Minimap.
-- **[SHIFT + V]:** Toggle View Mode (First Person / Top Down).
-- **[X]:** Hold to highlight the targeted wall (turns red if destructible and holding Axe).
-- **[CTRL + X]:** Destroy the highlighted wall (requires Axe).
-- **[SHIFT + R]:** Return to Main Menu for algorithm re-selection.
-- **[ENTER] or [R]:** Return to Menu (when on the win screen).
-- **[1-5]:** Select Algorithm (in the Main Menu).
+- `Up/Down Arrows`: Move forward/backward.
+- `Left/Right Arrows`: Rotate camera.
+- `[SPACE]`: Jump.
+- `[M]`: Toggle Minimap.
+- `[SHIFT + V]`: Toggle View Mode (First Person / Top Down).
+- `[X]`: Hold to highlight the targeted wall (turns red if destructible and holding Axe).
+- `[CTRL + X]`: Destroy the highlighted wall (requires Axe).
+- `[SHIFT + ENTER]`: Return to Main Menu for algorithm re-selection.
+- `[ENTER] or [R]`: Return to Menu (when on the win screen).
+- `[1-5]`: Select Algorithm (in the Main Menu).
 
 ## How to Run
 ```bash
