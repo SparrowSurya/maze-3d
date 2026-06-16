@@ -95,7 +95,6 @@ class GamePlaySceneDebug:
             grid_z = int((mouse_pos.y - (panel.y + 20 + self.camera_offset_y)) / self.zoom)
 
             if 0 <= grid_x < maze.width and 0 <= grid_z < maze.height:
-                print(f"DEBUG: Editing grid at {grid_x}, {grid_z} with tool {self.current_tool}")
                 if self.current_tool == 0:  # WALL
                     maze.grid[grid_z][grid_x] = 1
                 elif self.current_tool == 1:  # WAY
@@ -138,7 +137,6 @@ class GamePlaySceneDebug:
             if rl.gui_button(btn_rect, tool_name):
                 if self.current_tool != i:
                     self.current_tool = i
-                    print(f"DEBUG: Tool changed to {tool_name} (index {i})")
 
 
         # Axe Count Controls
@@ -159,7 +157,11 @@ class GamePlaySceneDebug:
         rot_btn_rect = rl.Rectangle(ui_rect.x + 5, ui_rect.y + 185, tools_width - 10, 20)
         if rl.gui_button(rot_btn_rect, "ROT 90"):
             player.yaw += math.pi / 2.0
-            print(f"DEBUG: Player rotated to {math.degrees(player.yaw):.1f} degrees")
+
+        # Regenerate Maze
+        regen_btn_rect = rl.Rectangle(ui_rect.x + 5, ui_rect.y + 215, tools_width - 10, 20)
+        if rl.gui_button(regen_btn_rect, "REGEN"):
+            main_scene.init(state)
 
         # Scissor Mode for map (Screen-space coordinates)
         rl.begin_scissor_mode(
