@@ -160,21 +160,25 @@ class Game:
         return rl.Rectangle(float(dest_x), float(dest_y), float(dest_w), float(dest_h))
 
     def _draw_debug_window(self, debug_scene: SceneDebug) -> None:
-        """Draws the debug scene window."""
+        """Draw the debug window."""
+
         debug = self.state.debug
         if not debug:
             return
 
+        # Handle dragging and resizing in screen pixels
         mouse_pos = rl.get_mouse_position()
         mouse_delta = rl.get_mouse_delta()
 
         if rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
+            # Check for dragging (title bar - top 20px)
             title_rect = rl.Rectangle(
                 debug.panel_rect.x,
                 debug.panel_rect.y,
                 debug.panel_rect.width,
                 20,
             )
+            # Check for resizing (bottom-right corner handle, 15x15)
             resizer_rect = rl.Rectangle(
                 debug.panel_rect.x + debug.panel_rect.width - 15,
                 debug.panel_rect.y + debug.panel_rect.height - 15,
@@ -199,18 +203,42 @@ class Game:
             if rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
                 debug.is_dragging = False
 
-        if rl.gui_window_box(debug.panel_rect, "DEBUG PANEL"):
-            debug.view_scene = False
+        # Manual Panel Rendering (more reliable than gui_window_box in some envs)
+        rl.draw_rectangle_rec(debug.panel_rect, rl.fade(rl.GRAY, 0.9))
+        rl.draw_rectangle_lines_ex(debug.panel_rect, 1, rl.DARKGRAY)
 
-        # Resizing handle visual
-        rl.draw_triangle(
-            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
-                        debug.panel_rect.y + debug.panel_rect.height - 10),
-            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 10,
-                        debug.panel_rect.y + debug.panel_rect.height - 2),
-            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
-                        debug.panel_rect.y + debug.panel_rect.height - 2),
-            rl.DARKGRAY
+        # Title Bar
+        title_bar = rl.Rectangle(
+            debug.panel_rect.x, debug.panel_rect.y, debug.panel_rect.width, 20
+        )
+        rl.draw_rectangle_rec(title_bar, rl.DARKGRAY)
+        rl.draw_text(
+            "DEBUG PANEL",
+            int(debug.panel_rect.x + 5),
+            int(debug.panel_rect.y + 5),
+            10,
+            rl.RAYWHITE
         )
 
+        # Close Button
+        close_btn_rect = rl.Rectangle(
+            debug.panel_rect.x + debug.panel_rect.width - 20,
+            debug.panel_rect.y,
+            20,
+            20
+        )
+        if rl.gui_button(close_btn_rect, "X"):
+            debug.view_scene = False
+
         debug_scene.draw(self.state)
+
+        # Resize handle
+        rl.draw_triangle(
+            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
+                        debug.panel_rect.y + debug.panel_rect.height - 12),
+            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 12,
+                        debug.panel_rect.y + debug.panel_rect.height - 2),
+            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
+                        debug.panel_rect.y + debug.panel_rect.height - 2),
+            rl.GOLD
+        )
