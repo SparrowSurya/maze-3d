@@ -55,7 +55,7 @@ class Player:
                 self.position,
                 target,
                 rl.Vector3(0.0, 1.0, 0.0),
-                45.0,
+                60.0,
                 rl.CAMERA_PERSPECTIVE,  # type: ignore
             )
         else:
@@ -74,7 +74,7 @@ class Player:
                 camera_pos,
                 target,
                 up,
-                45.0,
+                60.0,
                 rl.CAMERA_PERSPECTIVE,  # type: ignore
             )
 

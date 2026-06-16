@@ -15,6 +15,7 @@ from .constants import (
     SLICE_THICKNESS,
     SLICE_HEIGHT,
     CELL_SCALE,
+    MINIMAP_GRID_SIZE,
 )
 from ..maze import Maze, generate_maze
 from ..player import Player, ViewMode
@@ -40,8 +41,6 @@ class MazePlayScene:
         self.show_minimap: bool = False
 
     def init(self, state: GameState) -> None:
-        from .constants import CELL_SCALE
-
         self.maze = generate_maze(40, 40, algorithm=state.algo)
         # Find two farthest points
         p1, p2 = self.maze.find_farthest_points()
@@ -97,8 +96,6 @@ class MazePlayScene:
         """Finds the wall the player is looking at using raycasting."""
         if self.maze is None:
             return None
-
-        from .constants import CELL_SCALE
 
         # Calculate targeting ray based on player's yaw and pitch (independent of camera view)
         ray_start = self.player.position
@@ -307,53 +304,95 @@ class MazePlayScene:
         if self.maze is None:
             return
 
-        max_map_size = 180
-        cell_size = max_map_size // max(self.maze.width, self.maze.height)
-        actual_width = cell_size * self.maze.width
-        actual_height = cell_size * self.maze.height
+        # Configuration
+        max_map_pixel_size = 180
+        cell_size = max_map_pixel_size // MINIMAP_GRID_SIZE
+        actual_width = cell_size * MINIMAP_GRID_SIZE
+        actual_height = cell_size * MINIMAP_GRID_SIZE
         offset_x = state.width - actual_width - 10
         offset_y = state.height - actual_height - 10
 
+        # Calculate logical grid coordinates for the player
+        pgx = self.player.position.x / CELL_SCALE
+        pgz = self.player.position.z / CELL_SCALE
+
+        # Determine the floating-point top-left corner for the smooth scrolling grid
+        view_left = pgx - MINIMAP_GRID_SIZE / 2.0
+        view_top = pgz - MINIMAP_GRID_SIZE / 2.0
+
+        # Clamp view boundaries to stay within the maze
+        view_left = max(0.0, min(view_left, float(self.maze.width - MINIMAP_GRID_SIZE)))
+        view_top = max(0.0, min(view_top, float(self.maze.height - MINIMAP_GRID_SIZE)))
+
+        # Background
         rl.draw_rectangle(offset_x, offset_y, actual_width, actual_height, rl.fade(rl.BLACK, 0.7))
-        for z in range(self.maze.height):
-            for x in range(self.maze.width):
-                if self.maze.is_wall(x, z):
-                    # Calculate center of the minimap cell
-                    cx = offset_x + x * cell_size + cell_size // 2
-                    cz = offset_y + z * cell_size + cell_size // 2
 
-                    # Draw Right Connection if neighbor is also a wall
-                    if x + 1 < self.maze.width and self.maze.is_wall(x + 1, z):
-                        rl.draw_line(cx, cz, cx + cell_size, cz, rl.GRAY)
+        # Use Scissor Mode to ensure smooth scrolling walls don't bleed outside the minimap area
+        screen_w = rl.get_screen_width()
+        screen_h = rl.get_screen_height()
+        v_scale = min(screen_w / state.width, screen_h / state.height)
+        v_offset_x = (screen_w - state.width * v_scale) / 2.0
+        v_offset_y = (screen_h - state.height * v_scale) / 2.0
 
-                    # Draw Bottom Connection if neighbor is also a wall
-                    if z + 1 < self.maze.height and self.maze.is_wall(x, z + 1):
-                        rl.draw_line(cx, cz, cx, cz + cell_size, rl.GRAY)
-        rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
-
-        dest_grid_x = int(self.destination.x / CELL_SCALE)
-        dest_grid_z = int(self.destination.z / CELL_SCALE)
-        rl.draw_rectangle(
-            offset_x + dest_grid_x * cell_size + cell_size // 4,
-            offset_y + dest_grid_z * cell_size + cell_size // 4,
-            max(3, cell_size // 2),
-            max(3, cell_size // 2),
-            rl.GOLD,
+        rl.begin_scissor_mode(
+            int(v_offset_x + offset_x * v_scale),
+            int(v_offset_y + offset_y * v_scale),
+            int(actual_width * v_scale),
+            int(actual_height * v_scale),
         )
 
-        if self.axe_pos:
-            axe_grid_x = int(self.axe_pos.x / CELL_SCALE)
-            axe_grid_z = int(self.axe_pos.z / CELL_SCALE)
+        # Iterate through logical cells that overlap with the view
+        # Using floor/ceil to get the range of indices
+        for z in range(int(math.floor(view_top)), int(math.ceil(view_top + MINIMAP_GRID_SIZE)) + 1):
+            for x in range(
+                int(math.floor(view_left)), int(math.ceil(view_left + MINIMAP_GRID_SIZE)) + 1
+            ):
+                if 0 <= x < self.maze.width and 0 <= z < self.maze.height:
+                    if self.maze.is_wall(x, z):
+                        # Calculate smooth pixel coordinates relative to the view
+                        rx = (float(x) - view_left) * cell_size
+                        rz = (float(z) - view_top) * cell_size
+                        cx = offset_x + int(rx) + cell_size // 2
+                        cz = offset_y + int(rz) + cell_size // 2
+
+                        # Connections only (No Pillars)
+                        if x + 1 < self.maze.width and self.maze.is_wall(x + 1, z):
+                            rl.draw_line(cx, cz, cx + cell_size, cz, rl.GRAY)
+                        if z + 1 < self.maze.height and self.maze.is_wall(x, z + 1):
+                            rl.draw_line(cx, cz, cx, cz + cell_size, rl.GRAY)
+
+        # Icons (only if within current view)
+        dgx = int(self.destination.x / CELL_SCALE)
+        dgz = int(self.destination.z / CELL_SCALE)
+        in_view_x = view_left <= dgx < view_left + MINIMAP_GRID_SIZE
+        in_view_z = view_top <= dgz < view_top + MINIMAP_GRID_SIZE
+        if in_view_x and in_view_z:
             rl.draw_rectangle(
-                offset_x + axe_grid_x * cell_size + cell_size // 4,
-                offset_y + axe_grid_z * cell_size + cell_size // 4,
+                offset_x + int((float(dgx) - view_left) * cell_size) + cell_size // 4,
+                offset_y + int((float(dgz) - view_top) * cell_size) + cell_size // 4,
                 max(3, cell_size // 2),
                 max(3, cell_size // 2),
-                rl.BLUE,
+                rl.GOLD,
             )
 
-        px = int((self.player.position.x / CELL_SCALE) * cell_size)
-        pz = int((self.player.position.z / CELL_SCALE) * cell_size)
+        if self.axe_pos:
+            agx = int(self.axe_pos.x / CELL_SCALE)
+            agz = int(self.axe_pos.z / CELL_SCALE)
+            in_view_x = view_left <= agx < view_left + MINIMAP_GRID_SIZE
+            in_view_z = view_top <= agz < view_top + MINIMAP_GRID_SIZE
+            if in_view_x and in_view_z:
+                rl.draw_rectangle(
+                    offset_x + int((float(agx) - view_left) * cell_size) + cell_size // 4,
+                    offset_y + int((float(agz) - view_top) * cell_size) + cell_size // 4,
+                    max(3, cell_size // 2),
+                    max(3, cell_size // 2),
+                    rl.BLUE,
+                )
+
+        # Player Position (Always relative to start_x, start_z)
+        px = int((pgx - view_left) * cell_size)
+        pz = int((pgz - view_top) * cell_size)
+
         dir_len = 12
         dx = int(math.sin(self.player.yaw) * dir_len)
         dz = -int(math.cos(self.player.yaw) * dir_len)
@@ -364,6 +403,9 @@ class MazePlayScene:
             rl.YELLOW,
         )
         rl.draw_circle(offset_x + px, offset_y + pz, 3, rl.RED)
+
+        rl.end_scissor_mode()
+        rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
     def update(self, dt: float, state: GameState) -> Scene:
         assert self.maze is not None

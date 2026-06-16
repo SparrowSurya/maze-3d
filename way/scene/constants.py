@@ -12,6 +12,7 @@ __all__ = (
     "PILLAR_HEIGHT",
     "SLICE_THICKNESS",
     "SLICE_HEIGHT",
+    "MINIMAP_GRID_SIZE",
 )
 
 
@@ -30,3 +31,5 @@ PILLAR_HEIGHT = 1.1
 SLICE_THICKNESS = 0.2
 SLICE_HEIGHT = 1.0
 
+# Minimap Constants
+MINIMAP_GRID_SIZE = 15
