@@ -40,6 +40,15 @@ class Maze:
             return self.grid[z][x] == 1
         return True
 
+    def has_neighbor(self, x: int, z: int) -> bool:
+        """Checks if the wall at (x, z) has at least one cardinal neighboring wall cell."""
+        for dx, dz in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nx, nz = x + dx, z + dz
+            if 0 <= nx < self.width and 0 <= nz < self.height:
+                if self.grid[nz][nx] == 1:
+                    return True
+        return False
+
     def get_random_empty_cell(self) -> tuple[int, int]:
         """Returns the (x, z) coordinates of a randomly selected empty (path) cell."""
         empty_cells = [

@@ -116,7 +116,7 @@ class GamePlayScene:
 
         for z in range(self.maze.height):
             for x in range(self.maze.width):
-                if self.maze.grid[z][x] == 1:
+                if self.maze.grid[z][x] == 1 and self.maze.has_neighbor(x, z):
                     wall_box = rl.BoundingBox(
                         rl.Vector3(float(x) * CELL_SCALE, 0.0, float(z) * CELL_SCALE),
                         rl.Vector3(
@@ -163,7 +163,7 @@ class GamePlayScene:
 
             for z in range(self.maze.height):
                 for x in range(self.maze.width):
-                    if self.maze.is_wall(x, z):
+                    if self.maze.is_wall(x, z) and self.maze.has_neighbor(x, z):
                         # Central Pillar
                         pillar_pos = rl.Vector3(
                             float(x) * CELL_SCALE + CELL_SCALE / 2.0,

@@ -87,7 +87,7 @@ class Player:
 
         for i in range(grid_x - 1, grid_x + 2):
             for j in range(grid_z - 1, grid_z + 2):
-                if maze.is_wall(i, j):
+                if maze.is_wall(i, j) and maze.has_neighbor(i, j):
                     # 1. Pillar Collision
                     # AABB: (i*CELL_SCALE + half_cell - half_pillar)
                     cx = float(i) * CELL_SCALE + CELL_SCALE / 2.0
