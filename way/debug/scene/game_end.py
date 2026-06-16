@@ -5,8 +5,6 @@ This submodule contains the scene debug class for game end.
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-import pyray as rl
-
 from ...scene.constants import Scene
 
 if TYPE_CHECKING:

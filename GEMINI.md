@@ -44,6 +44,7 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 ### Do's
 - Always use `pyray` provided class for defining `raylib` C like constant values.
 - Always provide documentation to class, methods and functions.
+- Always declare imports at top in groups: builtin, 3rd party and project pkg import.
 
 ### Don't
 - Do not use `# type: ignore` if type checking or linitng do not shows any error.

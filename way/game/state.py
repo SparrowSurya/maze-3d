@@ -6,6 +6,8 @@ This submodule contains the game state related objects.
 from __future__ import annotations
 from dataclasses import dataclass
 
+import pyray as rl
+
 from ..asset import AssetManager
 from ..debug.scene.protocols import SceneDebug
 from ..scene.manager import SceneManager
@@ -44,3 +46,6 @@ class GameDebug:
 
     scene: dict[Scene, SceneDebug]
     view_scene: bool = False
+    panel_rect: rl.Rectangle = rl.Rectangle(10.0, 10.0, 200.0, 150.0)
+    is_dragging: bool = False
+    is_resizing: bool = False

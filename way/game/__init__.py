@@ -6,7 +6,7 @@ import pyray as rl
 
 from .state import GameState, GameManager, GameDebug
 from ..asset import AssetManager, AssetType
-from ..debug.scene import MainMenuSceneDebug, GamePlaySceneDebug, GameEndSceneDebug
+from ..debug.scene import MainMenuSceneDebug, GamePlaySceneDebug, GameEndSceneDebug, SceneDebug
 from ..scene import MainMenuScene, GamePlayScene, GameEndScene, Scene
 from ..scene.manager import SceneManager
 
@@ -137,8 +137,7 @@ class Game:
 
             # Debug window
             if debug and debug_scene and debug.view_scene:
-                rl.gui_window_box(rl.Rectangle(10, 10, 200, 150), "DEBUG PANEL")
-                debug_scene.draw(self.state)
+                self._draw_debug_window(debug_scene)
 
             rl.end_drawing()
 
@@ -159,3 +158,59 @@ class Game:
         dest_y = (screen_h - dest_h) / 2.0
 
         return rl.Rectangle(float(dest_x), float(dest_y), float(dest_w), float(dest_h))
+
+    def _draw_debug_window(self, debug_scene: SceneDebug) -> None:
+        """Draws the debug scene window."""
+        debug = self.state.debug
+        if not debug:
+            return
+
+        mouse_pos = rl.get_mouse_position()
+        mouse_delta = rl.get_mouse_delta()
+
+        if rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
+            title_rect = rl.Rectangle(
+                debug.panel_rect.x,
+                debug.panel_rect.y,
+                debug.panel_rect.width,
+                20,
+            )
+            resizer_rect = rl.Rectangle(
+                debug.panel_rect.x + debug.panel_rect.width - 15,
+                debug.panel_rect.y + debug.panel_rect.height - 15,
+                15,
+                15,
+            )
+
+            if rl.check_collision_point_rec(mouse_pos, resizer_rect):
+                debug.is_resizing = True
+            elif rl.check_collision_point_rec(mouse_pos, title_rect):
+                debug.is_dragging = True
+
+        if debug.is_resizing:
+            debug.panel_rect.width = max(100, debug.panel_rect.width + mouse_delta.x)
+            debug.panel_rect.height = max(100, debug.panel_rect.height + mouse_delta.y)
+            if rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
+                debug.is_resizing = False
+
+        if debug.is_dragging:
+            debug.panel_rect.x += mouse_delta.x
+            debug.panel_rect.y += mouse_delta.y
+            if rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
+                debug.is_dragging = False
+
+        if rl.gui_window_box(debug.panel_rect, "DEBUG PANEL"):
+            debug.view_scene = False
+
+        # Resizing handle visual
+        rl.draw_triangle(
+            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
+                        debug.panel_rect.y + debug.panel_rect.height - 10),
+            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 10,
+                        debug.panel_rect.y + debug.panel_rect.height - 2),
+            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
+                        debug.panel_rect.y + debug.panel_rect.height - 2),
+            rl.DARKGRAY
+        )
+
+        debug_scene.draw(self.state)
