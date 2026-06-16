@@ -1,5 +1,5 @@
 """
-This modules contains the player related classes.
+This modules contains player related classes.
 """
 
 from enum import StrEnum, auto
@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import pyray as rl
 
 from .maze import Maze
+from .scene.constants import PILLAR_SIZE, SLICE_THICKNESS, CELL_SCALE
 
 
 class ViewMode(StrEnum):
@@ -25,7 +26,7 @@ class Player:
     position: rl.Vector3
     yaw: float  # Rotation in radians
     pitch: float = 0.0
-    move_speed: float = 3.0
+    move_speed: float = 5.0
     rotation_speed: float = 3.0
 
     # Physics constants
@@ -43,7 +44,7 @@ class Player:
     TOP_DOWN_HEIGHT: float = 12.0
 
     def get_camera(self) -> rl.Camera3D:
-        """Provides the camers as per player's presepective view."""
+        """Provides the camera as per player's perspective view."""
         if self.view_mode == ViewMode.FIRST_PERSON:
             target = rl.Vector3(
                 self.position.x + math.sin(self.yaw),
@@ -79,8 +80,6 @@ class Player:
 
     def _check_collision(self, px: float, pz: float, maze: Maze) -> bool:
         """Checks if a cylinder at (px, pz) intersects any thin maze walls."""
-        from .scene.constants import PILLAR_SIZE, SLICE_THICKNESS, CELL_SCALE
-
         # Check a 3x3 grid of cells around the player
         grid_x = int(math.floor(px / CELL_SCALE))
         grid_z = int(math.floor(pz / CELL_SCALE))

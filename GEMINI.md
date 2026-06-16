@@ -16,7 +16,7 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
     - **Compass:** Real-time heading indicator.
     - **Minimap:** Opaque, toggleable map showing maze layout, player orientation, goal, and item locations.
     - **Crosshair:** Central red dot for precise navigation and raycast targeting.
-- **Strategic Mechanics:** 
+- **Strategic Mechanics:**
     - **Axe & Wall Destruction:** Collectible tool used for 3D raycast-based wall removal (non-boundary only). Highlights the targeted logical cell in red when holding [X] (requires Axe).
 - **Gameplay Loop:** Menu State -> Random spawn -> Resource Collection -> Strategic Exploration -> Goal Reached -> Win Screen.
 
@@ -26,6 +26,7 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 - **Package Manager:** `uv`
 - **Linting & Formatting:** `ruff`
 - **Type Checking:** `pyright` (Strict Mode) - MUST be run for verification after every change.
+- **Quick:** use `Makefile` to lint, format and typecheck.
 
 ## Project Structure
 - `way/`: Core package.

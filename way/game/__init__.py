@@ -1,5 +1,5 @@
 """
-This submodues contains game related objects.
+This submodule contains game related objects.
 """
 
 import pyray as rl
@@ -13,7 +13,15 @@ from ..scene.manager import SceneManager
 
 
 class Game:
+    """
+    Main game application class.
+    
+    This class orchestrates the game lifecycle, including initialization of Raylib,
+    asset management, scene management, and the main game loop.
+    """
+
     def __init__(self) -> None:
+        """Initialize the game application with default window dimensions and title."""
         self.width = 800
         self.height = 600
         self.title = "The Way Out - 3D Maze Game"
@@ -27,7 +35,7 @@ class Game:
         self.state: GameState = None  # type: ignore
 
     def _initialize_scenes(self) -> None:
-        """Initialize all game scenes and the scene manager."""
+        """Initialize all game scenes and the scene manager for navigation between screens."""
         scenes: dict[Scene, GameScene] = {
             Scene.MAIN_MENU: MainMenuScene(),
             Scene.MAZE_PLAY: MazePlayScene(),
@@ -37,8 +45,19 @@ class Game:
         self.game_manager = GameManager(asset=self.asset_manager, scene=self.scene_manager)
 
     def run(self) -> None:
+        """
+        Start the game.
+        
+        This method contains the main game loop, handles window resizing via a 
+        render texture, manages scene transitions, and orchestrates the update/draw cycle.
+        """
         rl.init_window(self.width, self.height, self.title)
+        rl.set_window_state(rl.ConfigFlags.FLAG_WINDOW_RESIZABLE)
         rl.set_target_fps(60)
+
+        # Initialize Render Texture for scaling
+        target = rl.load_render_texture(self.width, self.height)
+        rl.set_texture_filter(target.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
 
         # Load Wall Assets via AssetManager
         self.asset_manager.load_asset(
@@ -84,17 +103,42 @@ class Game:
                 new_scene.init(self.state)
                 self.scene_manager.set_scene(next_scene_type)
 
-            # Draw
-            rl.begin_drawing()
+            # Draw to Texture
+            rl.begin_texture_mode(target)
             rl.clear_background(rl.SKYBLUE)
 
             current_scene = self.scene_manager.get_scene(self.scene_manager.current)
             current_scene.draw(self.state)
 
             rl.draw_fps(10, self.height - 30)
+            rl.end_texture_mode()
+
+            # Draw Scaled Texture to Screen
+            rl.begin_drawing()
+            rl.clear_background(rl.BLACK)
+
+            # Calculate scaling and offsets
+            screen_w = rl.get_screen_width()
+            screen_h = rl.get_screen_height()
+            scale = min(screen_w / self.width, screen_h / self.height)
+
+            dest_w = self.width * scale
+            dest_h = self.height * scale
+            dest_x = (screen_w - dest_w) / 2.0
+            dest_y = (screen_h - dest_h) / 2.0
+
+            rl.draw_texture_pro(
+                target.texture,
+                rl.Rectangle(0.0, 0.0, float(self.width), float(-self.height)),
+                rl.Rectangle(float(dest_x), float(dest_y), float(dest_w), float(dest_h)),
+                rl.Vector2(0.0, 0.0),
+                0.0,
+                rl.WHITE,
+            )
             rl.end_drawing()
 
         # Unload assets
         self.asset_manager.unload_all()
+        rl.unload_render_texture(target)
 
         rl.close_window()

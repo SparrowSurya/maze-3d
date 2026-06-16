@@ -22,7 +22,11 @@ class MazeGenerator(Protocol):
     """Describes the maze generation strategy."""
 
     def generate(self, rows: int, cols: int) -> list[list[int]]:
-        """Generates the maze grid data."""
+        """
+        Generates the maze grid using the specific algorithm.
+
+        Returns a 2D grid where 1 represents a wall and 0 represents a path.
+        """
         ...
 
 

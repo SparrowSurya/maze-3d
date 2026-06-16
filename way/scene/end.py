@@ -26,6 +26,7 @@ class EndScene:
         pass
 
     def draw(self, state: GameState) -> None:
+        """Draws the win screen overlay with a gold message."""
         rl.draw_rectangle(0, 0, state.width, state.height, rl.fade(rl.BLACK, 0.5))
         rl.draw_text(
             "YOU FOUND THE WAY OUT!", state.width // 2 - 180, state.height // 2 - 40, 30, rl.GOLD
@@ -39,6 +40,7 @@ class EndScene:
         )
 
     def update(self, dt: float, state: GameState) -> Scene:
+        """Checks for input to return to the main menu."""
         if rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER) or rl.is_key_pressed(rl.KeyboardKey.KEY_R):  # type: ignore
             return Scene.MAIN_MENU
         return Scene.END_SCREEN

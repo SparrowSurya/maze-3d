@@ -40,7 +40,6 @@ class MazePlayScene:
         self.show_minimap: bool = False
 
     def init(self, state: GameState) -> None:
-        """Initializes the maze and player position."""
         from .constants import CELL_SCALE
 
         self.maze = generate_maze(25, 25, algorithm=state.algo)

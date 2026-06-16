@@ -35,11 +35,13 @@ class Maze:
         return cls(grid)
 
     def is_wall(self, x: int, z: int) -> bool:
+        """Checks if the given coordinates (x, z) correspond to a wall cell in the maze."""
         if 0 <= z < self.height and 0 <= x < self.width:
             return self.grid[z][x] == 1
         return True
 
     def get_random_empty_cell(self) -> tuple[int, int]:
+        """Returns the (x, z) coordinates of a randomly selected empty (path) cell."""
         empty_cells = [
             (x, z) for z in range(self.height) for x in range(self.width) if self.grid[z][x] == 0
         ]
