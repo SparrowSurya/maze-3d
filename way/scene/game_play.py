@@ -300,7 +300,7 @@ class GamePlayScene:
         rl.draw_text("W", compass_x - 32, compass_y - 5, 10, rl.BLACK)
 
     def draw_minimap(self, state: GameState) -> None:
-        max_map_pixel_size = 180
+        max_map_pixel_size = 90
         cell_size = max_map_pixel_size // MINIMAP_GRID_SIZE
         actual_width = cell_size * MINIMAP_GRID_SIZE
         actual_height = cell_size * MINIMAP_GRID_SIZE
@@ -322,18 +322,11 @@ class GamePlayScene:
         # Background
         rl.draw_rectangle(offset_x, offset_y, actual_width, actual_height, rl.fade(rl.BLACK, 0.7))
 
-        # Use Scissor Mode to ensure smooth scrolling walls don't bleed outside the minimap area
-        screen_w = rl.get_screen_width()
-        screen_h = rl.get_screen_height()
-        v_scale = min(screen_w / state.width, screen_h / state.height)
-        v_offset_x = (screen_w - state.width * v_scale) / 2.0
-        v_offset_y = (screen_h - state.height * v_scale) / 2.0
-
         rl.begin_scissor_mode(
-            int(v_offset_x + offset_x * v_scale),
-            int(v_offset_y + offset_y * v_scale),
-            int(actual_width * v_scale),
-            int(actual_height * v_scale),
+            int(offset_x),
+            int(offset_y),
+            int(actual_width),
+            int(actual_height),
         )
 
         # Iterate through logical cells that overlap with the view
