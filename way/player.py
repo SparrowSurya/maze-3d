@@ -56,17 +56,15 @@ class Player:
                 target,
                 rl.Vector3(0.0, 1.0, 0.0),
                 60.0,
-                rl.CAMERA_PERSPECTIVE,  # type: ignore
+                rl.CameraProjection.CAMERA_PERSPECTIVE,
             )
         else:
-            # Top-down view
-            # Camera is high above the player, looking straight down
+            # Top-down view: Camera is high above the player, looking straight down
             camera_pos = rl.Vector3(
                 self.position.x,
                 self.position.y + self.TOP_DOWN_HEIGHT,
                 self.position.z,
             )
-            # Look at the player
             target = self.position
             # Up vector is the player's forward direction to make them always face "up"
             up = rl.Vector3(math.sin(self.yaw), 0.0, -math.cos(self.yaw))
@@ -75,7 +73,7 @@ class Player:
                 target,
                 up,
                 60.0,
-                rl.CAMERA_PERSPECTIVE,  # type: ignore
+                rl.CameraProjection.CAMERA_PERSPECTIVE,
             )
 
     def _check_collision(self, px: float, pz: float, maze: Maze) -> bool:
@@ -170,9 +168,9 @@ class Player:
     def update(self, delta_time: float, maze: Maze) -> None:
         """Updates the player in the game."""
         # Rotation
-        if rl.is_key_down(rl.KeyboardKey.KEY_LEFT):  # type: ignore
+        if rl.is_key_down(rl.KeyboardKey.KEY_LEFT):
             self.yaw -= self.rotation_speed * delta_time
-        if rl.is_key_down(rl.KeyboardKey.KEY_RIGHT):  # type: ignore
+        if rl.is_key_down(rl.KeyboardKey.KEY_RIGHT):
             self.yaw += self.rotation_speed * delta_time
 
         # Movement
@@ -180,15 +178,15 @@ class Player:
         forward = rl.Vector3(math.sin(self.yaw), 0.0, -math.cos(self.yaw))
 
         move_vec = rl.Vector3(0, 0, 0)
-        if rl.is_key_down(rl.KeyboardKey.KEY_UP):  # type: ignore
+        if rl.is_key_down(rl.KeyboardKey.KEY_UP):
             move_vec.x += forward.x * self.move_speed * delta_time
             move_vec.z += forward.z * self.move_speed * delta_time
-        if rl.is_key_down(rl.KeyboardKey.KEY_DOWN):  # type: ignore
+        if rl.is_key_down(rl.KeyboardKey.KEY_DOWN):
             move_vec.x -= forward.x * self.move_speed * delta_time
             move_vec.z -= forward.z * self.move_speed * delta_time
 
         # Jumping
-        if self.is_grounded and rl.is_key_pressed(rl.KeyboardKey.KEY_SPACE):  # type: ignore
+        if self.is_grounded and rl.is_key_pressed(rl.KeyboardKey.KEY_SPACE):
             self.vertical_velocity = self.jump_force
             self.is_grounded = False
 

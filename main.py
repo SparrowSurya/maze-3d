@@ -1,4 +1,5 @@
 if __name__ == "__main__":
-    from way.main import main
+    from way.game import Game
 
-    main()
+    game = Game(800, 600, "The Way Out")
+    game.run()

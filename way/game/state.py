@@ -7,7 +7,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..asset import AssetManager
-from ..maze import MazeAlgorithm
 from ..scene.manager import SceneManager
 
 
@@ -23,8 +22,8 @@ class GameState:
 
     width: int
     height: int
-    algo: MazeAlgorithm
-
+    title: str
+    fps: int
     manager: GameManager
 
 

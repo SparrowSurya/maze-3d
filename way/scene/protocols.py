@@ -17,7 +17,7 @@ __all__ = (
 
 
 class GameScene(Protocol):
-    """Describes the scene in the game."""
+    """Describes the scene lifecycle in the game."""
 
     def init(self, state: GameState) -> None:
         """Initializes the scene with game state."""
@@ -29,4 +29,8 @@ class GameScene(Protocol):
 
     def update(self, dt: float, state: GameState) -> Scene:
         """Updates the scene and returns the next scene that will be next."""
+        ...
+
+    def clean(self, state: GameState) -> None:
+        """Performs scene cleanup."""
         ...

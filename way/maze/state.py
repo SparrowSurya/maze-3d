@@ -13,7 +13,7 @@ from .generators import MazeGenerator, MazeAlgorithm, get_generator
 __all__ = (
     "Maze",
     "generate_maze",
-    "get_default_maze",
+    "random_maze",
 )
 
 
@@ -92,7 +92,7 @@ def generate_maze(width: int, height: int, algorithm: MazeAlgorithm = MazeAlgori
     return Maze.from_strategy(strategy, height, width)
 
 
-def get_default_maze() -> Maze:
+def random_maze(width: int, height: int) -> Maze:
     """Randomly pick an algorithm."""
     algo = random.choice(list(MazeAlgorithm))
-    return generate_maze(25, 25, algorithm=algo)
+    return generate_maze(width, height, algorithm=algo)

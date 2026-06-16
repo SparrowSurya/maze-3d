@@ -17,7 +17,7 @@ from .constants import (
     CELL_SCALE,
     MINIMAP_GRID_SIZE,
 )
-from ..maze import Maze, generate_maze
+from ..maze import Maze, random_maze
 from ..player import Player, ViewMode
 from ..asset import AssetType
 
@@ -26,28 +26,37 @@ if TYPE_CHECKING:
 
 
 __all__ = (
-    "MazePlayScene",
+    "GamePlayScene",
 )
 
 
-class MazePlayScene:
+class GamePlayScene:
     """Describes the maze scene in the game."""
 
+    maze: Maze
+    player: Player
+    dest: rl.Vector3
+    axe: rl.Vector3 | None
+    show_minimap: bool
+
     def __init__(self) -> None:
-        self.maze: Maze | None = None
         self.player = Player(rl.Vector3(0, 0, 0), 0.0)
-        self.destination: rl.Vector3 = rl.Vector3(0, 0, 0)
-        self.axe_pos: rl.Vector3 | None = None
+        self.dest = rl.Vector3(0, 0, 0)
+        self.axe = None
         self.show_minimap: bool = False
 
     def init(self, state: GameState) -> None:
-        self.maze = generate_maze(40, 40, algorithm=state.algo)
-        # Find two farthest points
+        self.maze = random_maze(40, 40)
+        self._set_ends()
+        self._set_axe()
+
+    def _set_ends(self) -> None:
+        """Sets the source and destination."""
         p1, p2 = self.maze.find_farthest_points()
         spawn_x, spawn_z = p1
         dest_x, dest_z = p2
 
-        # Determine initial yaw (face toward an empty neighbor)
+        # Determine initial facing
         spawn_yaw = 0.0
         if not self.maze.is_wall(spawn_x, spawn_z - 1):
             spawn_yaw = 0.0  # North
@@ -73,10 +82,9 @@ class MazePlayScene:
             float(dest_z) * CELL_SCALE + CELL_SCALE / 2.0,
         )
 
-        # Spawn Axe (collectible)
-        self.axe_pos = None
-
-        # Find a suitable spot for the axe (not too close to spawn or destination)
+    def _set_axe(self) -> None:
+        """Sets the axe position."""
+        self.axe = None
         min_dist = (max(self.maze.width, self.maze.height) * CELL_SCALE) / 3.0
         max_attempts = 100
         for _ in range(max_attempts):
@@ -89,14 +97,11 @@ class MazePlayScene:
             d_spawn = rl.vector3_distance(potential_axe_pos, self.player.position)
             d_dest = rl.vector3_distance(potential_axe_pos, self.destination)
             if d_spawn > min_dist and d_dest > min_dist:
-                self.axe_pos = potential_axe_pos
+                self.axe = potential_axe_pos
                 break
 
-    def get_targeted_wall(self) -> tuple[int, int] | None:
+    def _front_wall(self) -> tuple[int, int] | None:
         """Finds the wall the player is looking at using raycasting."""
-        if self.maze is None:
-            return None
-
         # Calculate targeting ray based on player's yaw and pitch (independent of camera view)
         ray_start = self.player.position
         forward = rl.Vector3(
@@ -106,7 +111,7 @@ class MazePlayScene:
         )
         ray = rl.Ray(ray_start, forward)
 
-        closest_dist = 5.0 * CELL_SCALE  # Scale interaction range
+        closest_dist = 5.0 * CELL_SCALE
         hit_cell = None
 
         for z in range(self.maze.height):
@@ -123,6 +128,7 @@ class MazePlayScene:
                     hit_info = rl.get_ray_collision_box(ray, wall_box)
                     if hit_info.hit and hit_info.distance < closest_dist:
                         closest_dist = hit_info.distance
+
                         # Rule #1 & #2: Only highlight non-boundary walls as targets
                         if 0 < x < self.maze.width - 1 and 0 < z < self.maze.height - 1:
                             hit_cell = (x, z)
@@ -133,19 +139,14 @@ class MazePlayScene:
         return hit_cell
 
     def draw(self, state: GameState) -> None:
-        if self.maze is None:
-            return
-
         rl.begin_mode_3d(self.player.get_camera())
 
         ground_asset = state.manager.asset.get_asset(AssetType.GRASS)
         wall_asset = state.manager.asset.get_asset(AssetType.WALL)
 
-        # Ground
         if ground_asset:
             # Draw a grid of unit-sized planes to achieve tiling effect
             # Each logical cell covers CELL_SCALE x CELL_SCALE area.
-            # We draw planes of 1.0x1.0 units.
             for gz in range(int(self.maze.height * CELL_SCALE)):
                 for gx in range(int(self.maze.width * CELL_SCALE)):
                     rl.draw_model(
@@ -155,7 +156,6 @@ class MazePlayScene:
                         rl.WHITE,
                     )
 
-        # Walls
         if wall_asset:
             pillar_scale = rl.Vector3(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
             h_slice_scale = rl.Vector3(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
@@ -164,7 +164,7 @@ class MazePlayScene:
             for z in range(self.maze.height):
                 for x in range(self.maze.width):
                     if self.maze.is_wall(x, z):
-                        # Draw Central Pillar
+                        # Central Pillar
                         pillar_pos = rl.Vector3(
                             float(x) * CELL_SCALE + CELL_SCALE / 2.0,
                             PILLAR_HEIGHT / 2.0,
@@ -179,7 +179,7 @@ class MazePlayScene:
                             rl.WHITE,
                         )
 
-                        # Draw Right Connection
+                        # Right Connection
                         if x + 1 < self.maze.width and self.maze.is_wall(x + 1, z):
                             h_slice_pos = rl.Vector3(
                                 float(x) * CELL_SCALE + CELL_SCALE,
@@ -195,7 +195,7 @@ class MazePlayScene:
                                 rl.WHITE,
                             )
 
-                        # Draw Bottom Connection
+                        # Bottom Connection
                         if z + 1 < self.maze.height and self.maze.is_wall(x, z + 1):
                             v_slice_pos = rl.Vector3(
                                 float(x) * CELL_SCALE + CELL_SCALE / 2.0,
@@ -215,14 +215,14 @@ class MazePlayScene:
         rl.draw_cube(self.destination, 0.5, 2.0, 0.5, rl.GOLD)
         rl.draw_cube_wires(self.destination, 0.5, 2.0, 0.5, rl.ORANGE)
 
-        # Draw axe collectible
-        if self.axe_pos:
+        # Axe
+        if self.axe:
             bobbing = math.sin(rl.get_time() * 4.0) * 0.1
-            axe_draw_pos = rl.Vector3(self.axe_pos.x, self.axe_pos.y + bobbing, self.axe_pos.z)
+            axe_draw_pos = rl.Vector3(self.axe.x, self.axe.y + bobbing, self.axe.z)
             rl.draw_cube(axe_draw_pos, 0.2, 0.2, 0.2, rl.BLUE)
             rl.draw_cube_wires(axe_draw_pos, 0.2, 0.2, 0.2, rl.DARKBLUE)
 
-        # Player Model (Top Down View)
+        # Player View
         if self.player.view_mode == ViewMode.TOP_DOWN:
             player_base_pos = rl.Vector3(self.player.position.x, 0.0, self.player.position.z)
             rl.draw_cylinder(
@@ -244,7 +244,7 @@ class MazePlayScene:
 
         # Targeting Highlight (Rule #3: available in both views)
         if self.player.axe_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
-            target = self.get_targeted_wall()
+            target = self._front_wall()
             if target:
                 tx, tz = target
                 highlight_pos = rl.Vector3(
@@ -259,16 +259,15 @@ class MazePlayScene:
         rl.end_mode_3d()
 
         # HUD
-        rl.draw_text(f"Algorithm: {state.algo.name}", 10, 10, 20, rl.BLACK)
-        rl.draw_text("Find the gold pillar!", 10, 40, 15, rl.DARKGRAY)
-        rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+R Menu", 10, 60, 12, rl.GRAY)
+        rl.draw_text("Find the gold pillar!", 10, 10, 15, rl.DARKGRAY)
+        rl.draw_text("Press [M] Minimap | SHIFT+V View | SHIFT+ENTER Menu", 10, 40, 12, rl.GRAY)
 
         if self.player.axe_count > 0:
             rl.draw_text(f"Axe: {self.player.axe_count}", 10, 80, 15, rl.BLUE)
 
         # Crosshair
         if rl.is_key_down(rl.KeyboardKey.KEY_X):
-            target_wall = self.get_targeted_wall()
+            target_wall = self._front_wall()
             # Rule #3: Only turn red if target is valid AND player has axe
             crosshair_color = rl.RED if (target_wall and self.player.axe_count > 0) else rl.GRAY
             rl.draw_circle(state.width // 2, state.height // 2, 4, crosshair_color)
@@ -301,10 +300,6 @@ class MazePlayScene:
         rl.draw_text("W", compass_x - 32, compass_y - 5, 10, rl.BLACK)
 
     def draw_minimap(self, state: GameState) -> None:
-        if self.maze is None:
-            return
-
-        # Configuration
         max_map_pixel_size = 180
         cell_size = max_map_pixel_size // MINIMAP_GRID_SIZE
         actual_width = cell_size * MINIMAP_GRID_SIZE
@@ -375,9 +370,9 @@ class MazePlayScene:
                 rl.GOLD,
             )
 
-        if self.axe_pos:
-            agx = int(self.axe_pos.x / CELL_SCALE)
-            agz = int(self.axe_pos.z / CELL_SCALE)
+        if self.axe:
+            agx = int(self.axe.x / CELL_SCALE)
+            agz = int(self.axe.z / CELL_SCALE)
             in_view_x = view_left <= agx < view_left + MINIMAP_GRID_SIZE
             in_view_z = view_top <= agz < view_top + MINIMAP_GRID_SIZE
             if in_view_x and in_view_z:
@@ -408,32 +403,31 @@ class MazePlayScene:
         rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
     def update(self, dt: float, state: GameState) -> Scene:
-        assert self.maze is not None
-
-        is_shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(
-            rl.KeyboardKey.KEY_RIGHT_SHIFT
+        is_shift = (
+            rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT)
+            or rl.is_key_down(rl.KeyboardKey.KEY_RIGHT_SHIFT)
         )
-        if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_R):
+
+        if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER):
             return Scene.MAIN_MENU
 
         self.player.update(dt, self.maze)
 
         # Win condition
         if rl.vector3_distance(self.player.position, self.destination) < 0.5:
-            return Scene.END_SCREEN
+            return Scene.GAME_END
 
         # Axe collection
-        if self.axe_pos:
-            if rl.vector3_distance(self.player.position, self.axe_pos) < 0.8:
+        if self.axe:
+            if rl.vector3_distance(self.player.position, self.axe) < 0.5:
                 self.player.axe_count += 1
-                self.axe_pos = None
 
         # Wall destruction
         is_ctrl = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_CONTROL) or rl.is_key_down(
             rl.KeyboardKey.KEY_RIGHT_CONTROL
         )
         if self.player.axe_count > 0 and is_ctrl and rl.is_key_pressed(rl.KeyboardKey.KEY_X):
-            target = self.get_targeted_wall()
+            target = self._front_wall()
             if target:
                 tx, tz = target
                 # Destruction logic (already filtered for boundaries by get_targeted_wall)
@@ -449,4 +443,7 @@ class MazePlayScene:
             else:
                 self.player.view_mode = ViewMode.FIRST_PERSON
 
-        return Scene.MAZE_PLAY
+        return Scene.GAME_PLAY
+
+    def clean(self, state: GameState) -> None:
+        pass

@@ -20,8 +20,8 @@ class Scene(StrEnum):
     """Enumeration for the scenes in the game."""
 
     MAIN_MENU = auto()
-    MAZE_PLAY = auto()
-    END_SCREEN = auto()
+    GAME_PLAY = auto()
+    GAME_END = auto()
 
 
 # Wall Geometry Constants
