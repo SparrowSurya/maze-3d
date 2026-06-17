@@ -76,7 +76,7 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
 
     @override
     def draw(self, state: GameState) -> None:
-        if not state.gameplay:
+        if not state.gameplay or not state.gameplay.show_minimap:
             return
 
         rect = self._get_rect(state)
