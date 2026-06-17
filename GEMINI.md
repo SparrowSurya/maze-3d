@@ -5,7 +5,7 @@ A 3D strategic puzzle-solving game built with Python and Raylib.
 In "The Way Out", the maze is more than just a path; it is a strategic puzzle. Players must navigate a procedural environment using a combination of traditional exploration and tactical resource management. By using tools like the Axe to manipulate the environment and the Minimap to plan routes, players transform a simple maze into a calculated navigation challenge.
 
 ## Features
-- **Procedural Maze Generation:** Supports 5 distinct algorithms (Recursive Backtracker, Prim's, Kruskal's, Binary Tree, and Sidewinder), selectable from the main menu.
+- **Procedural Maze Generation:** Supports 5 distinct algorithms (Recursive Backtracker, Prim's, Kruskal's, Binary Tree, and Sidewinder).
 - **Optimized Level Design:** Uses BFS to place the spawn and destination at the farthest possible points.
 - **3D World:**
     - **Thin Wall Geometry:** Walls are rendered as central pillars with thin connecting slices, creating a less cramped and more detailed environment.

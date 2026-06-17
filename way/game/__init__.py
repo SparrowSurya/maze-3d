@@ -40,6 +40,7 @@ class Game:
                 scene=SceneManager({
                     Scene.MAIN_MENU: MainMenuScene(),
                     Scene.GAME_PLAY: GamePlayScene(
+                        grid_size=40,
                         components=[
                             MazeView(),
                             CompassUi(),

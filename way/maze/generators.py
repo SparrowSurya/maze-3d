@@ -3,9 +3,13 @@ This submodule contains the maze generator classes.
 """
 
 
+import sys
+import abc
+import contextlib
 import random
 from enum import StrEnum, auto
-from typing import Protocol
+from collections.abc import Generator
+from typing import override, Any
 
 
 class MazeAlgorithm(StrEnum):
@@ -18,46 +22,59 @@ class MazeAlgorithm(StrEnum):
     SIDEWINDER = auto()
 
 
-class MazeGenerator(Protocol):
+class MazeGenerator(abc.ABC):
     """Describes the maze generation strategy."""
 
+    @abc.abstractmethod
     def generate(self, rows: int, cols: int) -> list[list[int]]:
         """
         Generates the maze grid using the specific algorithm.
 
         Returns a 2D grid where 1 represents a wall and 0 represents a path.
         """
-        ...
+
+    @contextlib.contextmanager
+    def _recursion_limit(self, limit: int) -> Generator[Any, Any, Any]:
+        """Temporarily increases the recursion limit for deep maze generation."""
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(max(old_limit, limit))
+        try:
+            yield
+        finally:
+            sys.setrecursionlimit(old_limit)
 
 
-class DFSGenerator:
+class DFSGenerator(MazeGenerator):
     """Recursive Backtracker (DFS) maze generation."""
 
+    @override
     def generate(self, rows: int, cols: int) -> list[list[int]]:
-        if rows % 2 == 0:
-            rows += 1
-        if cols % 2 == 0:
-            cols += 1
+        with self._recursion_limit(rows * cols * 2):
+            if rows % 2 == 0:
+                rows += 1
+            if cols % 2 == 0:
+                cols += 1
 
-        grid = [[1 for _ in range(cols)] for _ in range(rows)]
+            grid = [[1 for _ in range(cols)] for _ in range(rows)]
 
-        def walk(x: int, z: int) -> None:
-            grid[z][x] = 0
-            directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
-            random.shuffle(directions)
-            for dx, dz in directions:
-                nx, nz = x + dx, z + dz
-                if 0 < nx < cols - 1 and 0 < nz < rows - 1 and grid[nz][nx] == 1:
-                    grid[z + dz // 2][x + dx // 2] = 0
-                    walk(nx, nz)
+            def walk(x: int, z: int) -> None:
+                grid[z][x] = 0
+                directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
+                random.shuffle(directions)
+                for dx, dz in directions:
+                    nx, nz = x + dx, z + dz
+                    if 0 < nx < cols - 1 and 0 < nz < rows - 1 and grid[nz][nx] == 1:
+                        grid[z + dz // 2][x + dx // 2] = 0
+                        walk(nx, nz)
 
-        walk(1, 1)
-        return grid
+            walk(1, 1)
+            return grid
 
 
-class PrimsGenerator:
+class PrimsGenerator(MazeGenerator):
     """Prim's algorithm maze generation."""
 
+    @override
     def generate(self, rows: int, cols: int) -> list[list[int]]:
         if rows % 2 == 0:
             rows += 1
@@ -89,9 +106,10 @@ class PrimsGenerator:
         return grid
 
 
-class KruskalsGenerator:
+class KruskalsGenerator(MazeGenerator):
     """Kruskal's algorithm maze generation."""
 
+    @override
     def generate(self, rows: int, cols: int) -> list[list[int]]:
         if rows % 2 == 0:
             rows += 1
@@ -135,9 +153,10 @@ class KruskalsGenerator:
         return grid
 
 
-class BinaryTreeGenerator:
+class BinaryTreeGenerator(MazeGenerator):
     """Binary Tree algorithm maze generation."""
 
+    @override
     def generate(self, rows: int, cols: int) -> list[list[int]]:
         if rows % 2 == 0:
             rows += 1
@@ -160,9 +179,10 @@ class BinaryTreeGenerator:
         return grid
 
 
-class SidewinderGenerator:
+class SidewinderGenerator(MazeGenerator):
     """Sidewinder algorithm maze generation."""
 
+    @override
     def generate(self, rows: int, cols: int) -> list[list[int]]:
         if rows % 2 == 0:
             rows += 1

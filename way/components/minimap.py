@@ -9,6 +9,8 @@ from typing import override, TYPE_CHECKING
 
 import pyray as rl
 
+from way.game.state import GameState
+
 from ..scene.constants import CELL_SCALE
 from .models import Component2DConfig, Alignment
 from .abstract import UiComponent2D
@@ -203,3 +205,11 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
             rl.YELLOW,
         )
         rl.draw_circle_v(rl.Vector2(px, py), 3.0, rl.RED)
+
+    @override
+    def update(self, state: GameState, dt: float) -> None:
+        if not state.gameplay:
+            return
+
+        if rl.is_key_pressed(rl.KeyboardKey.KEY_M):
+            state.gameplay.show_minimap = not state.gameplay.show_minimap
