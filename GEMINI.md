@@ -40,16 +40,15 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 - `main.py`: Root entry point for `uv run`.
 
 ## Code Quality
-
-### Do's
 - Always use `pyray` provided class for defining `raylib` C like constant values.
 - Always provide documentation to class, methods and functions.
 - Always declare imports at top in groups: builtin, 3rd party and project pkg import.
-
-### Don't
 - Do not use `# type: ignore` if type checking or linitng do not shows any error.
-- Do not use import statements inside functions.
+- Do not use import statements inside functions or methods.
 - Do not provide documentation on class method or function which are overloading or are adhering to `Protocol` execpt parent protocol class.
+
+## Always
+- When providing code updates, only modify the specific functions or blocks requested. Do not make unprompted rewrites or overwrite any manual changes I have already made to the code.
 
 
 ## Controls

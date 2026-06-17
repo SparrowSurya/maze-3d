@@ -3,8 +3,9 @@ This submodule contains the maze play scene.
 """
 
 from __future__ import annotations
-from typing import override, TYPE_CHECKING
 import math
+from collections.abc import Sequence
+from typing import override, TYPE_CHECKING
 
 import pyray as rl
 
@@ -21,6 +22,7 @@ from .constants import (
 from ..maze import Maze, random_maze
 from ..player import Player, ViewMode
 from ..asset import AssetType
+from ..components.abstract import UiComponent
 
 if TYPE_CHECKING:
     from ..game.state import GameState
@@ -40,7 +42,8 @@ class GamePlayScene(GameScene):
     axe: rl.Vector3 | None
     show_minimap: bool
 
-    def __init__(self) -> None:
+    def __init__(self, components: Sequence[UiComponent]) -> None:
+        GameScene.__init__(self, components)
         self.player = Player(rl.Vector3(0, 0, 0), 0.0)
         self.dest = rl.Vector3(0, 0, 0)
         self.axe = None
@@ -277,30 +280,11 @@ class GamePlayScene(GameScene):
         else:
             rl.draw_circle(state.width // 2, state.height // 2, 2, rl.RED)
 
-        self.draw_compass(state)
+        for component in self.components:
+            component.draw(state)
+
         if self.show_minimap:
             self.draw_minimap(state)
-
-    def draw_compass(self, state: GameState) -> None:
-        compass_x = state.width - 60
-        compass_y = 60
-        rl.draw_circle(compass_x, compass_y, 40, rl.LIGHTGRAY)
-        rl.draw_circle_lines(compass_x, compass_y, 40, rl.DARKGRAY)
-
-        needle_len = 25
-        needle_end_x = compass_x + int(math.sin(self.player.yaw) * needle_len)
-        needle_end_y = compass_y - int(math.cos(self.player.yaw) * needle_len)
-        rl.draw_line_ex(
-            rl.Vector2(float(compass_x), float(compass_y)),
-            rl.Vector2(float(needle_end_x), float(needle_end_y)),
-            3,
-            rl.RED,
-        )
-
-        rl.draw_text("N", compass_x - 3, compass_y - 32, 10, rl.BLACK)
-        rl.draw_text("S", compass_x - 3, compass_y + 22, 10, rl.BLACK)
-        rl.draw_text("E", compass_x + 22, compass_y - 5, 10, rl.BLACK)
-        rl.draw_text("W", compass_x - 32, compass_y - 5, 10, rl.BLACK)
 
     def draw_minimap(self, state: GameState) -> None:
         max_map_pixel_size = 90
