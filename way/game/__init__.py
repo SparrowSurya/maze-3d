@@ -6,7 +6,7 @@ import pyray as rl
 
 from .state import GameState, GameManager, GameDebug
 from ..asset import AssetManager, AssetType
-from ..components import CompassUi
+from ..components import CompassUi, MinimapUi
 from ..debug.scene import MainMenuSceneDebug, GamePlaySceneDebug, GameEndSceneDebug, SceneDebug
 from ..scene import MainMenuScene, GamePlayScene, GameEndScene, Scene
 from ..scene.manager import SceneManager
@@ -41,7 +41,8 @@ class Game:
                     Scene.MAIN_MENU: MainMenuScene(),
                     Scene.GAME_PLAY: GamePlayScene(
                         components=[
-                            CompassUi()
+                            CompassUi(),
+                            MinimapUi(),
                         ],
                     ),
                     Scene.GAME_END: GameEndScene(),

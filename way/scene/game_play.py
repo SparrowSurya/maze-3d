@@ -283,8 +283,8 @@ class GamePlayScene(GameScene):
         for component in self.components:
             component.draw(state)
 
-        if self.show_minimap:
-            self.draw_minimap(state)
+        # if self.show_minimap:
+        #     self.draw_minimap(state)
 
     def draw_minimap(self, state: GameState) -> None:
         max_map_pixel_size = 90
