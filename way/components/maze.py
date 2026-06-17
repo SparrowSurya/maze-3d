@@ -5,9 +5,10 @@ This module contains 3D maze component.
 from __future__ import annotations
 import math
 from dataclasses import dataclass
-from typing import override, TYPE_CHECKING
+from typing import override, TYPE_CHECKING, Any
 
 import pyray as rl
+from raylib import ffi
 
 from ..asset import AssetType
 from ..player import ViewMode
@@ -39,9 +40,25 @@ class MazeConfig(Component3DConfig):
     """Maze configuration."""
 
 
-
 class MazeView(UiComponent3D[MazeConfig]):
     """Maze 3D component in the game."""
+
+    def __init__(self, config: MazeConfig | None = None) -> None:
+        super().__init__(config)
+        self._ground_transforms: Any = None
+        self._pillar_transforms: Any = None
+        self._h_slice_transforms: Any = None
+        self._v_slice_transforms: Any = None
+
+        self._ground_count: int = 0
+        self._pillar_count: int = 0
+        self._h_slice_count: int = 0
+        self._v_slice_count: int = 0
+
+        self._last_maze_id: int = -1
+        self._last_grid_sum: int = -1
+        
+        self._instancing_shader: rl.Shader | None = None
 
     @property
     @override
@@ -53,87 +70,153 @@ class MazeView(UiComponent3D[MazeConfig]):
         if state.gameplay is None:
             return
 
+        if self._instancing_shader is None:
+            self._instancing_shader = rl.load_shader("assets/shaders/vert/instancing.vs", "")
+
+        if self._should_rebuild(state.gameplay.maze):
+            self._rebuild_cache(state.gameplay.maze)
+
         rl.begin_mode_3d(state.gameplay.player.get_camera())
-        self.draw_ground(state, state.gameplay.maze)
-        self.draw_walls(state, state.gameplay.maze)
+        self.draw_maze_instanced(state)
         self.draw_destination(state, state.gameplay.dest)
         self.draw_player(state, state.gameplay.player)
         self.draw_extra(state)
         rl.end_mode_3d()
         self.draw_hud(state)
 
-    def draw_ground(self, state: GameState, maze: Maze) -> None:
-        """Draws the ground."""
-        ground_asset = state.manager.asset.get_asset(AssetType.GRASS)
-        if ground_asset:
-            # Draw a grid of unit-sized planes to achieve tiling effect
-            # Each logical cell covers CELL_SCALE x CELL_SCALE area.
-            for gz in range(int(maze.height * CELL_SCALE)):
-                for gx in range(int(maze.width * CELL_SCALE)):
-                    rl.draw_model(
-                        ground_asset.model,
-                        rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5),
-                        1.0,
-                        rl.WHITE,
+    def _should_rebuild(self, maze: Maze) -> bool:
+        """Checks if the maze structure has changed."""
+        grid_sum = sum(sum(row) for row in maze.grid)
+        if id(maze) != self._last_maze_id or grid_sum != self._last_grid_sum:
+            self._last_maze_id = id(maze)
+            self._last_grid_sum = grid_sum
+            return True
+        return False
+
+    def _rebuild_cache(self, maze: Maze) -> None:
+        """Generates transform matrices for instanced rendering."""
+        ground_m = []
+        pillar_m = []
+        h_slice_m = []
+        v_slice_m = []
+
+        # Ground Transforms
+        for gz in range(int(maze.height * CELL_SCALE)):
+            for gx in range(int(maze.width * CELL_SCALE)):
+                pos = rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5)
+                ground_m.append(rl.matrix_translate(pos.x, pos.y, pos.z))
+
+        # Wall Geometry
+        pillar_scale_m = rl.matrix_scale(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
+        h_slice_scale_m = rl.matrix_scale(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
+        v_slice_scale_m = rl.matrix_scale(SLICE_THICKNESS, SLICE_HEIGHT, CELL_SCALE)
+
+        for z in range(maze.height):
+            for x in range(maze.width):
+                if maze.grid[z][x] == 1 and maze.has_neighbor(x, z):
+                    # Pillar
+                    pillar_pos = rl.Vector3(
+                        float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                        PILLAR_HEIGHT / 2.0,
+                        float(z) * CELL_SCALE + CELL_SCALE / 2.0,
+                    )
+                    pillar_m.append(
+                        rl.matrix_multiply(
+                            pillar_scale_m,
+                            rl.matrix_translate(pillar_pos.x, pillar_pos.y, pillar_pos.z),
+                        )
                     )
 
-    def draw_walls(self, state: GameState, maze: Maze) -> None:
-        """Draws the walls."""
-        wall_asset = state.manager.asset.get_asset(AssetType.WALL)
-        if wall_asset:
-            pillar_scale = rl.Vector3(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
-            h_slice_scale = rl.Vector3(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
-            v_slice_scale = rl.Vector3(SLICE_THICKNESS, SLICE_HEIGHT, CELL_SCALE)
-
-            for z in range(maze.height):
-                for x in range(maze.width):
-                    if maze.is_wall(x, z) and maze.has_neighbor(x, z):
-                        # Central Pillar
-                        pillar_pos = rl.Vector3(
-                            float(x) * CELL_SCALE + CELL_SCALE / 2.0,
-                            PILLAR_HEIGHT / 2.0,
+                    # Right Connection
+                    if x + 1 < maze.width and maze.grid[z][x + 1] == 1:
+                        h_slice_pos = rl.Vector3(
+                            float(x) * CELL_SCALE + CELL_SCALE,
+                            SLICE_HEIGHT / 2.0,
                             float(z) * CELL_SCALE + CELL_SCALE / 2.0,
                         )
-                        rl.draw_model_ex(
-                            wall_asset.model,
-                            pillar_pos,
-                            rl.Vector3(0, 1, 0),
-                            0.0,
-                            pillar_scale,
-                            rl.WHITE,
+                        h_slice_m.append(
+                            rl.matrix_multiply(
+                                h_slice_scale_m,
+                                rl.matrix_translate(h_slice_pos.x, h_slice_pos.y, h_slice_pos.z),
+                            )
                         )
 
-                        # Right Connection
-                        if x + 1 < maze.width and maze.is_wall(x + 1, z):
-                            h_slice_pos = rl.Vector3(
-                                float(x) * CELL_SCALE + CELL_SCALE,
-                                SLICE_HEIGHT / 2.0,
-                                float(z) * CELL_SCALE + CELL_SCALE / 2.0,
+                    # Bottom Connection
+                    if z + 1 < maze.height and maze.grid[z + 1][x] == 1:
+                        v_slice_pos = rl.Vector3(
+                            float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                            SLICE_HEIGHT / 2.0,
+                            float(z) * CELL_SCALE + CELL_SCALE,
+                        )
+                        v_slice_m.append(
+                            rl.matrix_multiply(
+                                v_slice_scale_m,
+                                rl.matrix_translate(v_slice_pos.x, v_slice_pos.y, v_slice_pos.z),
                             )
-                            rl.draw_model_ex(
-                                wall_asset.model,
-                                h_slice_pos,
-                                rl.Vector3(0, 1, 0),
-                                0.0,
-                                h_slice_scale,
-                                rl.WHITE,
-                            )
+                        )
 
-                        # Bottom Connection
-                        if z + 1 < maze.height and maze.is_wall(x, z + 1):
-                            v_slice_pos = rl.Vector3(
-                                float(x) * CELL_SCALE + CELL_SCALE / 2.0,
-                                SLICE_HEIGHT / 2.0,
-                                float(z) * CELL_SCALE + CELL_SCALE,
-                            )
-                            rl.draw_model_ex(
-                                wall_asset.model,
-                                v_slice_pos,
-                                rl.Vector3(0, 1, 0),
-                                0.0,
-                                v_slice_scale,
-                                rl.WHITE,
-                            )
+        self._ground_count = len(ground_m)
+        self._pillar_count = len(pillar_m)
+        self._h_slice_count = len(h_slice_m)
+        self._v_slice_count = len(v_slice_m)
+
+        if self._ground_count > 0:
+            self._ground_transforms = ffi.new(f"Matrix[{self._ground_count}]")
+            for i, m in enumerate(ground_m):
+                self._ground_transforms[i] = m
+        if self._pillar_count > 0:
+            self._pillar_transforms = ffi.new(f"Matrix[{self._pillar_count}]")
+            for i, m in enumerate(pillar_m):
+                self._pillar_transforms[i] = m
+        if self._h_slice_count > 0:
+            self._h_slice_transforms = ffi.new(f"Matrix[{self._h_slice_count}]")
+            for i, m in enumerate(h_slice_m):
+                self._h_slice_transforms[i] = m
+        if self._v_slice_count > 0:
+            self._v_slice_transforms = ffi.new(f"Matrix[{self._v_slice_count}]")
+            for i, m in enumerate(v_slice_m):
+                self._v_slice_transforms[i] = m
+
+    def draw_maze_instanced(self, state: GameState) -> None:
+        """Draws ground and walls using instanced rendering."""
+        ground_asset = state.manager.asset.get_asset(AssetType.GRASS)
+        wall_asset = state.manager.asset.get_asset(AssetType.WALL)
+
+        if ground_asset and self._ground_count > 0:
+            if self._instancing_shader:
+                ground_asset.model.materials[0].shader = self._instancing_shader
+            rl.draw_mesh_instanced(
+                ground_asset.model.meshes[0],
+                ground_asset.model.materials[0],
+                ffi.addressof(self._ground_transforms[0]),
+                self._ground_count,
+            )
+
+        if wall_asset:
+            if self._instancing_shader:
+                wall_asset.model.materials[0].shader = self._instancing_shader
+                
+            if self._pillar_count > 0:
+                rl.draw_mesh_instanced(
+                    wall_asset.model.meshes[0],
+                    wall_asset.model.materials[0],
+                    ffi.addressof(self._pillar_transforms[0]),
+                    self._pillar_count,
+                )
+            if self._h_slice_count > 0:
+                rl.draw_mesh_instanced(
+                    wall_asset.model.meshes[0],
+                    wall_asset.model.materials[0],
+                    ffi.addressof(self._h_slice_transforms[0]),
+                    self._h_slice_count,
+                )
+            if self._v_slice_count > 0:
+                rl.draw_mesh_instanced(
+                    wall_asset.model.meshes[0],
+                    wall_asset.model.materials[0],
+                    ffi.addressof(self._v_slice_transforms[0]),
+                    self._v_slice_count,
+                )
 
     def draw_destination(self, state: GameState, dest: rl.Vector3) -> None:
         """Draws the destination"""
