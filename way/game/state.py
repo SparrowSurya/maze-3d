@@ -11,7 +11,7 @@ import pyray as rl
 from ..asset import AssetManager
 from ..debug.scene.protocols import SceneDebug
 from ..scene.manager import SceneManager
-from ..scene.protocols import Scene
+from ..scene.abstract import Scene
 
 
 __all__ = (

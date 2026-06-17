@@ -3,11 +3,12 @@ This submodule contains the maze play scene.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import override, TYPE_CHECKING
 import math
 
 import pyray as rl
 
+from .abstract import GameScene
 from .constants import (
     Scene,
     PILLAR_SIZE,
@@ -30,7 +31,7 @@ __all__ = (
 )
 
 
-class GamePlayScene:
+class GamePlayScene(GameScene):
     """Describes the maze scene in the game."""
 
     maze: Maze
@@ -45,6 +46,7 @@ class GamePlayScene:
         self.axe = None
         self.show_minimap: bool = False
 
+    @override
     def init(self, state: GameState) -> None:
         self.maze = random_maze(40, 40)
         self._set_ends()
@@ -138,6 +140,7 @@ class GamePlayScene:
 
         return hit_cell
 
+    @override
     def draw(self, state: GameState) -> None:
         rl.begin_mode_3d(self.player.get_camera())
 
@@ -395,6 +398,7 @@ class GamePlayScene:
         rl.end_scissor_mode()
         rl.draw_rectangle_lines(offset_x, offset_y, actual_width, actual_height, rl.BLACK)
 
+    @override
     def update(self, dt: float, state: GameState) -> Scene:
         is_shift = (
             rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT)
@@ -438,5 +442,6 @@ class GamePlayScene:
 
         return Scene.GAME_PLAY
 
+    @override
     def clean(self, state: GameState) -> None:
         pass
