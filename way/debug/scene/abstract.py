@@ -1,13 +1,14 @@
 """
-This submodule contains the interface objects and types for the submodule.
+This submodule contains the abstract base classes for the submodule.
 """
 
 from __future__ import annotations
-from typing import Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING, override
+
+from ...components.abstract import UiComponent
 
 if TYPE_CHECKING:
     from ...game.state import GameState
-    from ...scene.constants import Scene
 
 
 __all__ = (
@@ -15,21 +16,21 @@ __all__ = (
 )
 
 
-class SceneDebug(Protocol):
+class SceneDebug(UiComponent):
     """Scene debug helper for game state."""
 
+    @override
     def init(self, state: GameState) -> None:
         """Initializes the scene debug with game state."""
-        ...
 
+    @override
     def draw(self, state: GameState) -> None:
         """Draws the scene debug."""
-        ...
 
-    def update(self, dt: float, state: GameState) -> Scene | None:
+    @override
+    def update(self, state: GameState, dt: float) -> None:
         """Updates the scene debug and returns the next scene that will be next."""
-        ...
 
+    @override
     def clean(self, state: GameState) -> None:
         """Performs scene debug cleanup."""
-        ...

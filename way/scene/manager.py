@@ -5,7 +5,8 @@ This submodule contains the scene manager class.
 
 from dataclasses import dataclass, field
 
-from .abstract import GameScene, Scene
+from .abstract import GameScene
+from .constants import Scene
 \
 
 __all__ = (

@@ -3,13 +3,13 @@ This submodule contains the scene debug class for game play.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 import math
 
 import pyray as rl
 
-from ...scene.constants import Scene, CELL_SCALE
-from ...scene.game_play import GamePlayScene
+from .abstract import SceneDebug
+from ...scene.constants import CELL_SCALE
 
 if TYPE_CHECKING:
     from ...game.state import GameState
@@ -20,7 +20,7 @@ __all__ = (
 )
 
 
-class GamePlaySceneDebug:
+class GamePlaySceneDebug(SceneDebug):
     """Game play scene debug view."""
 
     def __init__(self) -> None:
@@ -29,20 +29,14 @@ class GamePlaySceneDebug:
         self.zoom = 20.0
         self.current_tool = 0
 
-    def init(self, state: GameState) -> None:
-        pass
-
+    @override
     def draw(self, state: GameState) -> None:
-        if not state.debug:
-            return
-
-        main_scene = state.manager.scene.get_scene(Scene.GAME_PLAY)
-        if not isinstance(main_scene, GamePlayScene):
+        if not state.debug or not state.gameplay:
             return
 
         panel = state.debug.panel_rect
-        maze = main_scene.maze
-        player = main_scene.player
+        maze = state.gameplay.maze
+        player = state.gameplay.player
 
         # Note: mouse_pos is now back in screen-space
         mouse_pos = rl.get_mouse_position()
@@ -100,12 +94,12 @@ class GamePlaySceneDebug:
                 elif self.current_tool == 1:  # WAY
                     maze.grid[grid_z][grid_x] = 0
                 elif self.current_tool == 2:  # DEST
-                    main_scene.destination = rl.Vector3(
+                    state.gameplay.dest = rl.Vector3(
                         grid_x * CELL_SCALE + CELL_SCALE / 2.0, 0.5,
                         grid_z * CELL_SCALE + CELL_SCALE / 2.0
                     )
                 elif self.current_tool == 3:  # AXE
-                    main_scene.axe = rl.Vector3(
+                    state.gameplay.axe = rl.Vector3(
                         grid_x * CELL_SCALE + CELL_SCALE / 2.0, 0.5,
                         grid_z * CELL_SCALE + CELL_SCALE / 2.0
                     )
@@ -158,11 +152,6 @@ class GamePlaySceneDebug:
         if rl.gui_button(rot_btn_rect, "ROT 90"):
             player.yaw += math.pi / 2.0
 
-        # Regenerate Maze
-        regen_btn_rect = rl.Rectangle(ui_rect.x + 5, ui_rect.y + 215, tools_width - 10, 20)
-        if rl.gui_button(regen_btn_rect, "REGEN"):
-            main_scene.init(state)
-
         # Scissor Mode for map (Screen-space coordinates)
         rl.begin_scissor_mode(
             int(map_area.x),
@@ -189,8 +178,8 @@ class GamePlaySceneDebug:
                 )
 
         # Draw Destination
-        dx = int(main_scene.destination.x / CELL_SCALE)
-        dz = int(main_scene.destination.z / CELL_SCALE)
+        dx = int(state.gameplay.dest.x / CELL_SCALE)
+        dz = int(state.gameplay.dest.z / CELL_SCALE)
         dsx = panel.x + dx * self.zoom + self.camera_offset_x
         dsy = panel.y + 20 + dz * self.zoom + self.camera_offset_y
         rl.draw_rectangle(
@@ -198,9 +187,9 @@ class GamePlaySceneDebug:
         )
 
         # Draw Axe
-        if main_scene.axe:
-            ax = int(main_scene.axe.x / CELL_SCALE)
-            az = int(main_scene.axe.z / CELL_SCALE)
+        if state.gameplay.axe:
+            ax = int(state.gameplay.axe.x / CELL_SCALE)
+            az = int(state.gameplay.axe.z / CELL_SCALE)
             asx = panel.x + ax * self.zoom + self.camera_offset_x
             asy = panel.y + 20 + az * self.zoom + self.camera_offset_y
             rl.draw_rectangle(
@@ -219,8 +208,3 @@ class GamePlaySceneDebug:
 
         rl.end_scissor_mode()
 
-    def update(self, dt: float, state: GameState) -> Scene | None:
-        pass
-
-    def clean(self, state: GameState) -> None:
-        pass

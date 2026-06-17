@@ -6,7 +6,7 @@ import pyray as rl
 
 from .state import GameState, GameManager, GameDebug
 from ..asset import AssetManager, AssetType
-from ..components import CompassUi, MinimapUi
+from ..components import CompassUi, MinimapUi, MazeView
 from ..debug.scene import MainMenuSceneDebug, GamePlaySceneDebug, GameEndSceneDebug, SceneDebug
 from ..scene import MainMenuScene, GamePlayScene, GameEndScene, Scene
 from ..scene.manager import SceneManager
@@ -41,6 +41,7 @@ class Game:
                     Scene.MAIN_MENU: MainMenuScene(),
                     Scene.GAME_PLAY: GamePlayScene(
                         components=[
+                            MazeView(),
                             CompassUi(),
                             MinimapUi(),
                         ],
@@ -97,18 +98,21 @@ class Game:
 
         while not rl.window_should_close():
             dt = rl.get_frame_time()
-            current_scene = scene_manager.get_scene(scene_manager.current)
+            current_scene_type = scene_manager.current
+            current_scene = scene_manager.get_scene(current_scene_type)
             debug_scene = None if debug is None else debug.scene.get(scene_manager.current)
 
             # Scene update (optionally with debug)
-            next_scene_type = current_scene.update(dt, self.state)
+            current_scene.update(self.state, dt)
             if debug_scene:
-                debug_next_scene_type = debug_scene.update(dt, self.state)
-                if debug_next_scene_type:
-                    next_scene_type = debug_next_scene_type
+                debug_scene.update(self.state, dt)
 
             # Scene Transition
-            if next_scene_type != scene_manager.current:
+            next_scene_type = scene_manager.current
+            if current_scene_type != next_scene_type:
+                current_scene.clean(self.state)
+                if debug_scene:
+                    debug_scene.clean(self.state)
                 new_scene = scene_manager.get_scene(next_scene_type)
                 new_scene.init(self.state)
                 scene_manager.set_scene(next_scene_type)
@@ -119,6 +123,13 @@ class Game:
             # Toggle scene debug
             if debug and rl.is_key_pressed(rl.KeyboardKey.KEY_F3):
                 debug.view_scene = not debug.view_scene
+                debug_scene = debug.scene.get(scene_manager.current)
+                if debug_scene:
+                    if debug.view_scene:
+                        debug_scene.init(self.state)
+                    else:
+                        debug_scene.clean(self.state)
+
 
             rl.begin_texture_mode(target)
             rl.clear_background(rl.SKYBLUE)

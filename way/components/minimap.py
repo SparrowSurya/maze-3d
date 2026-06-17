@@ -14,7 +14,6 @@ from .models import Component2DConfig, Alignment
 from .abstract import UiComponent2D
 
 if TYPE_CHECKING:
-    from ..scene.game_play import GamePlayScene
     from ..game.state import GameState
 
 
@@ -32,11 +31,8 @@ class MinimapConfig(Component2DConfig):
     """Descrbies the neighbour levels to show around the player cells."""
 
 
-class MinimapUi(UiComponent2D):
+class MinimapUi(UiComponent2D[MinimapConfig]):
     """Minimap component in the game."""
-
-    config: MinimapConfig | None = None
-    """Optional configuration override for the minimap."""
 
     @property
     @override
@@ -49,45 +45,38 @@ class MinimapUi(UiComponent2D):
             neighbours_level=7,
         )
 
-    @property
-    def current_config(self) -> MinimapConfig:
-        """Provides the current configuration being used."""
-        return self.config or self.default_config
-
     def _get_rect(self, state: GameState) -> rl.Rectangle:
         """Calculates the rectangle of the minimap based on config and screen size."""
-        config = self.current_config
-        size = config.size or rl.Vector2(100.0, 100.0)
+        size = self.config.size or self.default_config.size
+        assert(size is not None)
 
-        if config.pos is None:
+        if self.config.pos is None:
             # Case 1: Position relative to screen using alignment
-            align = config.align or Alignment.center()
+            align = self.config.align or Alignment.center()
 
             # Map align.x (-1.0 to 1.0) to screen X
             # -1.0 -> offset.x
             #  1.0 -> width - offset.x - size.x
             #  0.0 -> center - size.x / 2
             x = (float(state.width) - size.x) / 2.0 + align.x * (
-                float(state.width) / 2.0 - size.x / 2.0 - config.offset.x
+                float(state.width) / 2.0 - size.x / 2.0 - self.config.offset.x
             )
 
             # Map align.y (-1.0 to 1.0) to screen Y
             y = (float(state.height) - size.y) / 2.0 + align.y * (
-                float(state.height) / 2.0 - size.y / 2.0 - config.offset.y
+                float(state.height) / 2.0 - size.y / 2.0 - self.config.offset.y
             )
         else:
             # Case 2: Position relative to an absolute pos, using alignment as anchor
-            align = config.align or Alignment.center()
-            x = config.pos.x - ((align.x + 1.0) / 2.0 * size.x) + config.offset.x
-            y = config.pos.y - ((align.y + 1.0) / 2.0 * size.y) + config.offset.y
+            align = self.config.align or Alignment.center()
+            x = self.config.pos.x - ((align.x + 1.0) / 2.0 * size.x) + self.config.offset.x
+            y = self.config.pos.y - ((align.y + 1.0) / 2.0 * size.y) + self.config.offset.y
 
         return rl.Rectangle(x, y, size.x, size.y)
 
     @override
     def draw(self, state: GameState) -> None:
-        # Only draw if we are in GamePlayScene
-        scene = state.manager.scene.data.get(state.manager.scene.current)
-        if scene is None or not hasattr(scene, "maze"):
+        if not state.gameplay:
             return
 
         rect = self._get_rect(state)
@@ -106,15 +95,18 @@ class MinimapUi(UiComponent2D):
         rl.draw_rectangle_rec(rect, rl.fade(rl.BLACK, 0.7))
 
     def draw_walls(self, state: GameState) -> None:
-        """Draws walls of the maze."""
-        scene: GamePlayScene = state.manager.scene.data[state.manager.scene.current]  # type: ignore
+        """Draws the walls as lines."""
+        assert(state.gameplay is not None)
+
+        player = state.gameplay.player
+        maze = state.gameplay.maze
+
         rect = self._get_rect(state)
-        config = self.current_config
-        level = config.neighbours_level
+        level = self.config.neighbours_level
 
         # Calculate logical grid coordinates for the player
-        pgx = scene.player.position.x / CELL_SCALE
-        pgz = scene.player.position.z / CELL_SCALE
+        pgx = player.position.x / CELL_SCALE
+        pgz = player.position.z / CELL_SCALE
 
         cell_count = 2 * level + 1
         cell_size = rect.width / cell_count
@@ -131,21 +123,21 @@ class MinimapUi(UiComponent2D):
 
         for z in range(start_z, end_z + 1):
             for x in range(start_x, end_x + 1):
-                if 0 <= x < scene.maze.width and 0 <= z < scene.maze.height:
-                    if scene.maze.is_wall(x, z):
+                if 0 <= x < maze.width and 0 <= z < maze.height:
+                    if maze.is_wall(x, z):
                         # Calculate screen coordinates relative to the view
                         rx = rect.x + (float(x) - view_lx) * cell_size
                         rz = rect.y + (float(z) - view_lz) * cell_size
 
                         # Connections only (following existing minimap style)
-                        if x + 1 < scene.maze.width and scene.maze.is_wall(x + 1, z):
+                        if x + 1 < maze.width and maze.is_wall(x + 1, z):
                             rl.draw_line_ex(
                                 rl.Vector2(rx, rz),
                                 rl.Vector2(rx + cell_size, rz),
                                 1.0,
                                 rl.GRAY,
                             )
-                        if z + 1 < scene.maze.height and scene.maze.is_wall(x, z + 1):
+                        if z + 1 < maze.height and maze.is_wall(x, z + 1):
                             rl.draw_line_ex(
                                 rl.Vector2(rx, rz),
                                 rl.Vector2(rx, rz + cell_size),
@@ -155,13 +147,13 @@ class MinimapUi(UiComponent2D):
 
     def draw_extra(self, state: GameState) -> None:
         """Draws the extra things in maze like player, destination, pickups etc."""
-        scene: GamePlayScene = state.manager.scene.data[state.manager.scene.current]  # type: ignore
-        rect = self._get_rect(state)
-        config = self.current_config
-        level = config.neighbours_level
+        assert(state.gameplay is not None)
 
-        pgx = scene.player.position.x / CELL_SCALE
-        pgz = scene.player.position.z / CELL_SCALE
+        rect = self._get_rect(state)
+        level = self.config.neighbours_level
+
+        pgx = state.gameplay.player.position.x / CELL_SCALE
+        pgz = state.gameplay.player.position.z / CELL_SCALE
 
         cell_count = 2 * level + 1
         cell_size = rect.width / cell_count
@@ -170,8 +162,8 @@ class MinimapUi(UiComponent2D):
         view_lz = pgz - level - 0.5
 
         # Destination
-        dgx = scene.destination.x / CELL_SCALE
-        dgz = scene.destination.z / CELL_SCALE
+        dgx = state.gameplay.dest.x / CELL_SCALE
+        dgz = state.gameplay.dest.z / CELL_SCALE
         if view_lx <= dgx < view_lx + cell_count and view_lz <= dgz < view_lz + cell_count:
             rl.draw_rectangle_v(
                 rl.Vector2(
@@ -183,9 +175,9 @@ class MinimapUi(UiComponent2D):
             )
 
         # Axe
-        if scene.axe:
-            agx = scene.axe.x / CELL_SCALE
-            agz = scene.axe.z / CELL_SCALE
+        if state.gameplay.axe:
+            agx = state.gameplay.axe.x / CELL_SCALE
+            agz = state.gameplay.axe.z / CELL_SCALE
             if view_lx <= agx < view_lx + cell_count and view_lz <= agz < view_lz + cell_count:
                 rl.draw_rectangle_v(
                     rl.Vector2(
@@ -201,8 +193,8 @@ class MinimapUi(UiComponent2D):
         py = rect.y + rect.height / 2.0
 
         dir_len = cell_size * 0.8
-        dx = math.sin(scene.player.yaw) * dir_len
-        dz = -math.cos(scene.player.yaw) * dir_len
+        dx = math.sin(state.gameplay.player.yaw) * dir_len
+        dz = -math.cos(state.gameplay.player.yaw) * dir_len
 
         rl.draw_line_ex(
             rl.Vector2(px, py),

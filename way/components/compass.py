@@ -27,11 +27,8 @@ class CompassConfig(Component2DConfig):
     """Compass configuration."""
 
 
-class CompassUi(UiComponent2D):
+class CompassUi(UiComponent2D[CompassConfig]):
     """Compass component in the game."""
-
-    config: CompassConfig | None = None
-    """Optional configuration override for the compass."""
 
     @property
     @override
@@ -42,39 +39,33 @@ class CompassUi(UiComponent2D):
             offset=rl.Vector2(10.0, 10.0),
         )
 
-    @property
-    def current_config(self) -> CompassConfig:
-        """Provides the current configuration being used."""
-        return self.config or self.default_config
-
     def _get_center(self, state: GameState) -> rl.Vector2:
         """Calculates the center of the compass based on config and screen size."""
-        config = self.current_config
-        radius = config.radius or 40.0
+        radius = self.config.radius or 40.0
 
-        if config.pos is None:
+        if self.config.pos is None:
             # Case 1: Position relative to screen using alignment
-            align = config.align or Alignment.center()
+            align = self.config.align or Alignment.center()
 
             # Map align.x (-1.0 to 1.0) to screen X
             # -1.0 -> offset.x + radius
             #  1.0 -> width - offset.x - radius
             #  0.0 -> center
             x = (float(state.width) / 2.0) + align.x * (
-                float(state.width) / 2.0 - radius - config.offset.x
+                float(state.width) / 2.0 - radius - self.config.offset.x
             )
 
             # Map align.y (-1.0 to 1.0) to screen Y
             y = (float(state.height) / 2.0) + align.y * (
-                float(state.height) / 2.0 - radius - config.offset.y
+                float(state.height) / 2.0 - radius - self.config.offset.y
             )
         else:
             # Case 2: Position relative to an absolute pos, using alignment as anchor
             # align.x = 1.0 means right edge is at pos.x -> center.x = pos.x - radius
             # align.x = -1.0 means left edge is at pos.x -> center.x = pos.x + radius
-            align = config.align or Alignment.center()
-            x = config.pos.x - (align.x * radius) + config.offset.x
-            y = config.pos.y - (align.y * radius) + config.offset.y
+            align = self.config.align or Alignment.center()
+            x = self.config.pos.x - (align.x * radius) + self.config.offset.x
+            y = self.config.pos.y - (align.y * radius) + self.config.offset.y
 
         return rl.Vector2(x, y)
 
@@ -87,7 +78,7 @@ class CompassUi(UiComponent2D):
     def draw_base(self, state: GameState) -> None:
         """Draws the base layout of the compass."""
         center = self._get_center(state)
-        radius = self.current_config.radius or 40.0
+        radius = self.config.radius or 40.0
 
         rl.draw_circle_v(center, radius, rl.WHITE)
         rl.draw_circle_lines_v(center, radius, rl.DARKGRAY)
@@ -96,7 +87,7 @@ class CompassUi(UiComponent2D):
     def draw_marker(self, state: GameState) -> None:
         """Draws the base marking of the compass for direction indication."""
         center = self._get_center(state)
-        radius = self.current_config.radius or 40.0
+        radius = self.config.radius or 40.0
         font_size = max(10, int(radius * 0.3))
 
         # Major ticks
@@ -135,7 +126,7 @@ class CompassUi(UiComponent2D):
         - The needle indicates the direction of True North relative to the player's yaw.
         """
         center = self._get_center(state)
-        radius = self.current_config.radius or 40.0
+        radius = self.config.radius or 40.0
 
         # Attempt to retrieve the player's yaw from the current scene in GameState
         # This handles the case where the component is used within a GamePlayScene

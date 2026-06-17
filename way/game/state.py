@@ -9,9 +9,10 @@ from dataclasses import dataclass
 import pyray as rl
 
 from ..asset import AssetManager
-from ..debug.scene.protocols import SceneDebug
+from ..debug.scene.abstract import SceneDebug
 from ..scene.manager import SceneManager
-from ..scene.abstract import Scene
+from ..scene.constants import Scene
+from ..scene.state import GamePlayState
 
 
 __all__ = (
@@ -30,6 +31,7 @@ class GameState:
     title: str
     fps: int
     manager: GameManager
+    gameplay: GamePlayState | None = None
     debug: GameDebug | None = None
 
 
@@ -39,6 +41,7 @@ class GameManager:
 
     asset: AssetManager
     scene: SceneManager
+
 
 @dataclass(slots=True)
 class GameDebug:

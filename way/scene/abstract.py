@@ -3,11 +3,9 @@ This submodule contains the interface objects and types for the submodule.
 """
 
 from __future__ import annotations
-import abc
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
-from .constants import Scene
 from ..components.abstract import UiComponent
 
 if TYPE_CHECKING:
@@ -19,8 +17,8 @@ __all__ = (
 )
 
 
-class GameScene(abc.ABC):
-    """Describes the scene lifecycle in the game."""
+class GameScene(UiComponent):
+    """Describes the scene lifecycle component in the game."""
 
     components: Sequence[UiComponent]
     """Collection of ui components that are drawn in order they appear."""
@@ -28,18 +26,26 @@ class GameScene(abc.ABC):
     def __init__(self, components: Sequence[UiComponent] | None = None) -> None:
         self.components = [] if components is None else components
 
-    @abc.abstractmethod
+    @override
     def init(self, state: GameState) -> None:
         """Initializes the scene with game state."""
+        for component in self.components:
+            component.init(state)
 
-    @abc.abstractmethod
+    @override
     def draw(self, state: GameState) -> None:
         """Draws the scene."""
+        for component in self.components:
+            component.draw(state)
 
-    @abc.abstractmethod
-    def update(self, dt: float, state: GameState) -> Scene:
+    @override
+    def update(self, state: GameState, dt: float) -> None:
         """Updates the scene and returns the next scene that will be next."""
+        for component in self.components:
+            component.update(state, dt)
 
-    @abc.abstractmethod
+    @override
     def clean(self, state: GameState) -> None:
         """Performs scene cleanup."""
+        for component in self.components:
+            component.clean(state)

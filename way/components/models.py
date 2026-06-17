@@ -11,13 +11,14 @@ import pyray as rl
 
 __all__ = (
     "Component2DConfig",
+    "Component3DConfig",
     "Alignment",
 )
 
 
 @dataclass
 class Component2DConfig:
-    """Defines the ui configuration of the comopnent."""
+    """Defines the 2D ui configuration of the comopnent."""
 
     align: Alignment | None = None
     """
@@ -45,6 +46,11 @@ class Component2DConfig:
 
     def __post_init__(self) -> None:
         assert(self.align is not None or self.pos is not None)
+
+
+@dataclass
+class Component3DConfig:
+    """Defines the 3D ui configuration of the comopnent."""
 
 
 @dataclass(slots=True)
