@@ -71,8 +71,12 @@ class MazeChunk:
         v_slice_m = []
 
         # Ground Transforms within this chunk
-        for gz in range(int(self.z_start * CELL_SCALE), int((self.z_start + self.height) * CELL_SCALE)):
-            for gx in range(int(self.x_start * CELL_SCALE), int((self.x_start + self.width) * CELL_SCALE)):
+        for gz in range(
+            int(self.z_start * CELL_SCALE), int((self.z_start + self.height) * CELL_SCALE)
+        ):
+            for gx in range(
+                int(self.x_start * CELL_SCALE), int((self.x_start + self.width) * CELL_SCALE)
+            ):
                 pos = rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5)
                 ground_m.append(rl.matrix_translate(pos.x, pos.y, pos.z))
 
@@ -97,7 +101,9 @@ class MazeChunk:
                             h_slice_m.append(
                                 rl.matrix_multiply(
                                     h_slice_scale_m,
-                                    rl.matrix_translate(h_slice_pos.x, h_slice_pos.y, h_slice_pos.z),
+                                    rl.matrix_translate(
+                                        h_slice_pos.x, h_slice_pos.y, h_slice_pos.z
+                                    ),
                                 )
                             )
 
@@ -111,7 +117,9 @@ class MazeChunk:
                             v_slice_m.append(
                                 rl.matrix_multiply(
                                     v_slice_scale_m,
-                                    rl.matrix_translate(v_slice_pos.x, v_slice_pos.y, v_slice_pos.z),
+                                    rl.matrix_translate(
+                                        v_slice_pos.x, v_slice_pos.y, v_slice_pos.z
+                                    ),
                                 )
                             )
 
@@ -122,45 +130,65 @@ class MazeChunk:
 
         if self.ground_count > 0:
             self.ground_transforms = ffi.new(f"Matrix[{self.ground_count}]")
-            for i, m in enumerate(ground_m): self.ground_transforms[i] = m
+            for i, m in enumerate(ground_m):
+                self.ground_transforms[i] = m
         if self.h_slice_count > 0:
             self.h_slice_transforms = ffi.new(f"Matrix[{self.h_slice_count}]")
-            for i, m in enumerate(h_slice_m): self.h_slice_transforms[i] = m
+            for i, m in enumerate(h_slice_m):
+                self.h_slice_transforms[i] = m
         if self.v_slice_count > 0:
             self.v_slice_transforms = ffi.new(f"Matrix[{self.v_slice_count}]")
-            for i, m in enumerate(v_slice_m): self.v_slice_transforms[i] = m
+            for i, m in enumerate(v_slice_m):
+                self.v_slice_transforms[i] = m
 
-    def is_visible(self, camera_pos: rl.Vector3, camera_forward: rl.Vector3, view_mode: ViewMode) -> bool:
+    def is_visible(
+        self, camera_pos: rl.Vector3, camera_forward: rl.Vector3, view_mode: ViewMode
+    ) -> bool:
         """Performs simple view cone and distance culling."""
         dist = rl.vector3_distance(camera_pos, self.center)
-        
+
         # Max reasonable draw distance
         if dist > 60.0:
             return False
-            
+
         # Always draw if very close (inside or near the chunk)
         if dist < self.radius + 5.0:
             return True
-            
+
         if view_mode == ViewMode.FIRST_PERSON:
             to_chunk = rl.vector3_normalize(rl.vector3_subtract(self.center, camera_pos))
             if rl.vector3_dot_product(camera_forward, to_chunk) < 0.2:
                 return False
-                
+
         return True
 
     def draw(self, shader: rl.Shader, grass: rl.Model, wall: rl.Model) -> None:
         """Renders all instances in this chunk."""
         if grass and self.ground_count > 0:
             grass.materials[0].shader = shader
-            rl.draw_mesh_instanced(grass.meshes[0], grass.materials[0], ffi.addressof(self.ground_transforms[0]), self.ground_count)
+            rl.draw_mesh_instanced(
+                grass.meshes[0],
+                grass.materials[0],
+                ffi.addressof(self.ground_transforms[0]),
+                self.ground_count,
+            )
 
         if wall:
             wall.materials[0].shader = shader
             if self.h_slice_count > 0:
-                rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.h_slice_transforms[0]), self.h_slice_count)
+                rl.draw_mesh_instanced(
+                    wall.meshes[0],
+                    wall.materials[0],
+                    ffi.addressof(self.h_slice_transforms[0]),
+                    self.h_slice_count,
+                )
             if self.v_slice_count > 0:
-                rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.v_slice_transforms[0]), self.v_slice_count)
+                rl.draw_mesh_instanced(
+                    wall.meshes[0],
+                    wall.materials[0],
+                    ffi.addressof(self.v_slice_transforms[0]),
+                    self.v_slice_count,
+                )
 
 
 class MazeView(UiComponent3D[MazeConfig]):
@@ -211,7 +239,7 @@ class MazeView(UiComponent3D[MazeConfig]):
     def _rebuild_chunks(self, maze: Maze) -> None:
         """Partitions the maze into chunks and builds their caches."""
         self._chunks = []
-        
+
         for z in range(0, maze.height, self.CHUNK_SIZE):
             for x in range(0, maze.width, self.CHUNK_SIZE):
                 c_width = min(self.CHUNK_SIZE, maze.width - x)
@@ -224,17 +252,17 @@ class MazeView(UiComponent3D[MazeConfig]):
         """Culls and draws chunks."""
         assert state.gameplay is not None
         player = state.gameplay.player
-        
+
         # Calculate camera forward vector for culling
         camera_forward = rl.Vector3(
             math.sin(player.yaw) * math.cos(player.pitch),
             math.sin(player.pitch),
             -math.cos(player.yaw) * math.cos(player.pitch),
         )
-        
+
         ground_asset = state.manager.asset.get_asset(AssetType.GRASS)
         wall_asset = state.manager.asset.get_asset(AssetType.WALL)
-        
+
         if not (ground_asset and wall_asset and self._instancing_shader):
             return
 
