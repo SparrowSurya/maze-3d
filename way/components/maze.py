@@ -40,24 +40,165 @@ class MazeConfig(Component3DConfig):
     """Maze configuration."""
 
 
+class MazeChunk:
+    """A spatial chunk of the maze to optimize rendering."""
+
+    def __init__(self, x_start: int, z_start: int, width: int, height: int) -> None:
+        self.x_start = x_start
+        self.z_start = z_start
+        self.width = width
+        self.height = height
+
+        # Center for culling
+        self.center = rl.Vector3(
+            (float(x_start) + float(width) / 2.0) * CELL_SCALE,
+            0.0,
+            (float(z_start) + float(height) / 2.0) * CELL_SCALE,
+        )
+        # Approx bounding sphere radius for the chunk
+        self.radius = (max(width, height) * CELL_SCALE) * 0.8
+
+        self.ground_transforms: Any = None
+        self.pillar_transforms: Any = None
+        self.h_slice_transforms: Any = None
+        self.v_slice_transforms: Any = None
+
+        self.ground_count: int = 0
+        self.pillar_count: int = 0
+        self.h_slice_count: int = 0
+        self.v_slice_count: int = 0
+
+    def rebuild(self, maze: Maze) -> None:
+        """Populates the transform matrices for this specific chunk."""
+        ground_m = []
+        pillar_m = []
+        h_slice_m = []
+        v_slice_m = []
+
+        # Ground Transforms within this chunk
+        # Note: Ground logic uses maze dimensions * CELL_SCALE
+        for gz in range(int(self.z_start * CELL_SCALE), int((self.z_start + self.height) * CELL_SCALE)):
+            for gx in range(int(self.x_start * CELL_SCALE), int((self.x_start + self.width) * CELL_SCALE)):
+                pos = rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5)
+                ground_m.append(rl.matrix_translate(pos.x, pos.y, pos.z))
+
+        # Wall Geometry within this chunk
+        pillar_scale_m = rl.matrix_scale(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
+        h_slice_scale_m = rl.matrix_scale(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
+        v_slice_scale_m = rl.matrix_scale(SLICE_THICKNESS, SLICE_HEIGHT, CELL_SCALE)
+
+        for z in range(self.z_start, self.z_start + self.height):
+            for x in range(self.x_start, self.x_start + self.width):
+                if 0 <= x < maze.width and 0 <= z < maze.height:
+                    if maze.grid[z][x] == 1 and maze.has_neighbor(x, z):
+                        # Pillar
+                        pillar_pos = rl.Vector3(
+                            float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                            PILLAR_HEIGHT / 2.0,
+                            float(z) * CELL_SCALE + CELL_SCALE / 2.0,
+                        )
+                        pillar_m.append(
+                            rl.matrix_multiply(
+                                pillar_scale_m,
+                                rl.matrix_translate(pillar_pos.x, pillar_pos.y, pillar_pos.z),
+                            )
+                        )
+
+                        # Right Connection
+                        if x + 1 < maze.width and maze.grid[z][x + 1] == 1:
+                            h_slice_pos = rl.Vector3(
+                                float(x) * CELL_SCALE + CELL_SCALE,
+                                SLICE_HEIGHT / 2.0,
+                                float(z) * CELL_SCALE + CELL_SCALE / 2.0,
+                            )
+                            h_slice_m.append(
+                                rl.matrix_multiply(
+                                    h_slice_scale_m,
+                                    rl.matrix_translate(h_slice_pos.x, h_slice_pos.y, h_slice_pos.z),
+                                )
+                            )
+
+                        # Bottom Connection
+                        if z + 1 < maze.height and maze.grid[z + 1][x] == 1:
+                            v_slice_pos = rl.Vector3(
+                                float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                                SLICE_HEIGHT / 2.0,
+                                float(z) * CELL_SCALE + CELL_SCALE,
+                            )
+                            v_slice_m.append(
+                                rl.matrix_multiply(
+                                    v_slice_scale_m,
+                                    rl.matrix_translate(v_slice_pos.x, v_slice_pos.y, v_slice_pos.z),
+                                )
+                            )
+
+        # Convert to C-Arrays
+        self.ground_count = len(ground_m)
+        self.pillar_count = len(pillar_m)
+        self.h_slice_count = len(h_slice_m)
+        self.v_slice_count = len(v_slice_m)
+
+        if self.ground_count > 0:
+            self.ground_transforms = ffi.new(f"Matrix[{self.ground_count}]")
+            for i, m in enumerate(ground_m): self.ground_transforms[i] = m
+        if self.pillar_count > 0:
+            self.pillar_transforms = ffi.new(f"Matrix[{self.pillar_count}]")
+            for i, m in enumerate(pillar_m): self.pillar_transforms[i] = m
+        if self.h_slice_count > 0:
+            self.h_slice_transforms = ffi.new(f"Matrix[{self.h_slice_count}]")
+            for i, m in enumerate(h_slice_m): self.h_slice_transforms[i] = m
+        if self.v_slice_count > 0:
+            self.v_slice_transforms = ffi.new(f"Matrix[{self.v_slice_count}]")
+            for i, m in enumerate(v_slice_m): self.v_slice_transforms[i] = m
+
+    def is_visible(self, camera_pos: rl.Vector3, camera_forward: rl.Vector3, view_mode: ViewMode) -> bool:
+        """Performs simple view cone and distance culling."""
+        dist = rl.vector3_distance(camera_pos, self.center)
+        
+        # Max reasonable draw distance
+        if dist > 60.0:
+            return False
+            
+        # Always draw if very close (inside or near the chunk)
+        if dist < self.radius + 5.0:
+            return True
+            
+        if view_mode == ViewMode.FIRST_PERSON:
+            # Cone check (approx 120 degree field of view)
+            to_chunk = rl.vector3_normalize(rl.vector3_subtract(self.center, camera_pos))
+            # If the chunk is behind the player, dot product is < 0
+            # A threshold of 0.0 is a 180-degree half-space; 0.2 is roughly a 150-degree cone.
+            if rl.vector3_dot_product(camera_forward, to_chunk) < 0.2:
+                return False
+                
+        return True
+
+    def draw(self, shader: rl.Shader, grass: rl.Model, wall: rl.Model) -> None:
+        """Renders all instances in this chunk."""
+        if grass and self.ground_count > 0:
+            grass.materials[0].shader = shader
+            rl.draw_mesh_instanced(grass.meshes[0], grass.materials[0], ffi.addressof(self.ground_transforms[0]), self.ground_count)
+
+        if wall:
+            wall.materials[0].shader = shader
+            if self.pillar_count > 0:
+                rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.pillar_transforms[0]), self.pillar_count)
+            if self.h_slice_count > 0:
+                rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.h_slice_transforms[0]), self.h_slice_count)
+            if self.v_slice_count > 0:
+                rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.v_slice_transforms[0]), self.v_slice_count)
+
+
 class MazeView(UiComponent3D[MazeConfig]):
     """Maze 3D component in the game."""
 
+    CHUNK_SIZE = 8  # Logical cells per chunk
+
     def __init__(self, config: MazeConfig | None = None) -> None:
         super().__init__(config)
-        self._ground_transforms: Any = None
-        self._pillar_transforms: Any = None
-        self._h_slice_transforms: Any = None
-        self._v_slice_transforms: Any = None
-
-        self._ground_count: int = 0
-        self._pillar_count: int = 0
-        self._h_slice_count: int = 0
-        self._v_slice_count: int = 0
-
+        self._chunks: list[MazeChunk] = []
         self._last_maze_id: int = -1
         self._last_grid_sum: int = -1
-        
         self._instancing_shader: rl.Shader | None = None
 
     @property
@@ -74,10 +215,10 @@ class MazeView(UiComponent3D[MazeConfig]):
             self._instancing_shader = rl.load_shader("assets/shaders/vert/instancing.vs", "")
 
         if self._should_rebuild(state.gameplay.maze):
-            self._rebuild_cache(state.gameplay.maze)
+            self._rebuild_chunks(state.gameplay.maze)
 
         rl.begin_mode_3d(state.gameplay.player.get_camera())
-        self.draw_maze_instanced(state)
+        self.draw_maze_chunked(state)
         self.draw_destination(state, state.gameplay.dest)
         self.draw_player(state, state.gameplay.player)
         self.draw_extra(state)
@@ -93,130 +234,39 @@ class MazeView(UiComponent3D[MazeConfig]):
             return True
         return False
 
-    def _rebuild_cache(self, maze: Maze) -> None:
-        """Generates transform matrices for instanced rendering."""
-        ground_m = []
-        pillar_m = []
-        h_slice_m = []
-        v_slice_m = []
+    def _rebuild_chunks(self, maze: Maze) -> None:
+        """Partitions the maze into chunks and builds their caches."""
+        self._chunks = []
+        
+        for z in range(0, maze.height, self.CHUNK_SIZE):
+            for x in range(0, maze.width, self.CHUNK_SIZE):
+                c_width = min(self.CHUNK_SIZE, maze.width - x)
+                c_height = min(self.CHUNK_SIZE, maze.height - z)
+                chunk = MazeChunk(x, z, c_width, c_height)
+                chunk.rebuild(maze)
+                self._chunks.append(chunk)
 
-        # Ground Transforms
-        for gz in range(int(maze.height * CELL_SCALE)):
-            for gx in range(int(maze.width * CELL_SCALE)):
-                pos = rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5)
-                ground_m.append(rl.matrix_translate(pos.x, pos.y, pos.z))
-
-        # Wall Geometry
-        pillar_scale_m = rl.matrix_scale(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
-        h_slice_scale_m = rl.matrix_scale(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
-        v_slice_scale_m = rl.matrix_scale(SLICE_THICKNESS, SLICE_HEIGHT, CELL_SCALE)
-
-        for z in range(maze.height):
-            for x in range(maze.width):
-                if maze.grid[z][x] == 1 and maze.has_neighbor(x, z):
-                    # Pillar
-                    pillar_pos = rl.Vector3(
-                        float(x) * CELL_SCALE + CELL_SCALE / 2.0,
-                        PILLAR_HEIGHT / 2.0,
-                        float(z) * CELL_SCALE + CELL_SCALE / 2.0,
-                    )
-                    pillar_m.append(
-                        rl.matrix_multiply(
-                            pillar_scale_m,
-                            rl.matrix_translate(pillar_pos.x, pillar_pos.y, pillar_pos.z),
-                        )
-                    )
-
-                    # Right Connection
-                    if x + 1 < maze.width and maze.grid[z][x + 1] == 1:
-                        h_slice_pos = rl.Vector3(
-                            float(x) * CELL_SCALE + CELL_SCALE,
-                            SLICE_HEIGHT / 2.0,
-                            float(z) * CELL_SCALE + CELL_SCALE / 2.0,
-                        )
-                        h_slice_m.append(
-                            rl.matrix_multiply(
-                                h_slice_scale_m,
-                                rl.matrix_translate(h_slice_pos.x, h_slice_pos.y, h_slice_pos.z),
-                            )
-                        )
-
-                    # Bottom Connection
-                    if z + 1 < maze.height and maze.grid[z + 1][x] == 1:
-                        v_slice_pos = rl.Vector3(
-                            float(x) * CELL_SCALE + CELL_SCALE / 2.0,
-                            SLICE_HEIGHT / 2.0,
-                            float(z) * CELL_SCALE + CELL_SCALE,
-                        )
-                        v_slice_m.append(
-                            rl.matrix_multiply(
-                                v_slice_scale_m,
-                                rl.matrix_translate(v_slice_pos.x, v_slice_pos.y, v_slice_pos.z),
-                            )
-                        )
-
-        self._ground_count = len(ground_m)
-        self._pillar_count = len(pillar_m)
-        self._h_slice_count = len(h_slice_m)
-        self._v_slice_count = len(v_slice_m)
-
-        if self._ground_count > 0:
-            self._ground_transforms = ffi.new(f"Matrix[{self._ground_count}]")
-            for i, m in enumerate(ground_m):
-                self._ground_transforms[i] = m
-        if self._pillar_count > 0:
-            self._pillar_transforms = ffi.new(f"Matrix[{self._pillar_count}]")
-            for i, m in enumerate(pillar_m):
-                self._pillar_transforms[i] = m
-        if self._h_slice_count > 0:
-            self._h_slice_transforms = ffi.new(f"Matrix[{self._h_slice_count}]")
-            for i, m in enumerate(h_slice_m):
-                self._h_slice_transforms[i] = m
-        if self._v_slice_count > 0:
-            self._v_slice_transforms = ffi.new(f"Matrix[{self._v_slice_count}]")
-            for i, m in enumerate(v_slice_m):
-                self._v_slice_transforms[i] = m
-
-    def draw_maze_instanced(self, state: GameState) -> None:
-        """Draws ground and walls using instanced rendering."""
+    def draw_maze_chunked(self, state: GameState) -> None:
+        """Culls and draws chunks."""
+        assert state.gameplay is not None
+        player = state.gameplay.player
+        
+        # Calculate camera forward vector for culling
+        camera_forward = rl.Vector3(
+            math.sin(player.yaw) * math.cos(player.pitch),
+            math.sin(player.pitch),
+            -math.cos(player.yaw) * math.cos(player.pitch),
+        )
+        
         ground_asset = state.manager.asset.get_asset(AssetType.GRASS)
         wall_asset = state.manager.asset.get_asset(AssetType.WALL)
+        
+        if not (ground_asset and wall_asset and self._instancing_shader):
+            return
 
-        if ground_asset and self._ground_count > 0:
-            if self._instancing_shader:
-                ground_asset.model.materials[0].shader = self._instancing_shader
-            rl.draw_mesh_instanced(
-                ground_asset.model.meshes[0],
-                ground_asset.model.materials[0],
-                ffi.addressof(self._ground_transforms[0]),
-                self._ground_count,
-            )
-
-        if wall_asset:
-            if self._instancing_shader:
-                wall_asset.model.materials[0].shader = self._instancing_shader
-                
-            if self._pillar_count > 0:
-                rl.draw_mesh_instanced(
-                    wall_asset.model.meshes[0],
-                    wall_asset.model.materials[0],
-                    ffi.addressof(self._pillar_transforms[0]),
-                    self._pillar_count,
-                )
-            if self._h_slice_count > 0:
-                rl.draw_mesh_instanced(
-                    wall_asset.model.meshes[0],
-                    wall_asset.model.materials[0],
-                    ffi.addressof(self._h_slice_transforms[0]),
-                    self._h_slice_count,
-                )
-            if self._v_slice_count > 0:
-                rl.draw_mesh_instanced(
-                    wall_asset.model.meshes[0],
-                    wall_asset.model.materials[0],
-                    ffi.addressof(self._v_slice_transforms[0]),
-                    self._v_slice_count,
-                )
+        for chunk in self._chunks:
+            if chunk.is_visible(player.position, camera_forward, player.view_mode):
+                chunk.draw(self._instancing_shader, ground_asset.model, wall_asset.model)
 
     def draw_destination(self, state: GameState, dest: rl.Vector3) -> None:
         """Draws the destination"""
