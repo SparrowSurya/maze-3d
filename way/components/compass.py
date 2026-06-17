@@ -128,16 +128,13 @@ class CompassUi(UiComponent2D[CompassConfig]):
         center = self._get_center(state)
         radius = self.config.radius or 40.0
 
-        # Attempt to retrieve the player's yaw from the current scene in GameState
-        # This handles the case where the component is used within a GamePlayScene
-        scene = state.manager.scene.data.get(state.manager.scene.current)
-        player = getattr(scene, "player", None)
+        # Attempt to retrieve the player's yaw from GamePlayState in GameState
         yaw = 0.0
-        if player is not None and hasattr(player, "yaw"):
+        if state.gameplay:
             # Use negative yaw so the needle always points to World North (-Z).
             # This implements magnetic compass behavior where the dial is fixed (N at top)
             # and the needle rotates to point towards True North relative to the view.
-            yaw = -float(player.yaw)
+            yaw = -float(state.gameplay.player.yaw)
 
         needle_len = radius * 0.8
         needle_width = radius * 0.15

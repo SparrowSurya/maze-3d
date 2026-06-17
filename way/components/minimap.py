@@ -25,7 +25,7 @@ __all__ = (
 
 @dataclass(slots=True)
 class MinimapConfig(Component2DConfig):
-    """Compass configuration."""
+    """Minimap configuration."""
 
     neighbours_level: int = 5
     """Descrbies the neighbour levels to show around the player cells."""
