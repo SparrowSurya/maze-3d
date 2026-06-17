@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import pyray as rl
 
 from .maze import Maze
-from .scene.constants import PILLAR_SIZE, SLICE_THICKNESS, CELL_SCALE
+from .scene.constants import SLICE_THICKNESS, CELL_SCALE
 
 
 class ViewMode(StrEnum):
@@ -82,31 +82,17 @@ class Player:
         grid_x = int(math.floor(px / CELL_SCALE))
         grid_z = int(math.floor(pz / CELL_SCALE))
 
-        half_pillar = PILLAR_SIZE / 2.0
         half_slice = SLICE_THICKNESS / 2.0
 
         for i in range(grid_x - 1, grid_x + 2):
             for j in range(grid_z - 1, grid_z + 2):
                 if maze.is_wall(i, j) and maze.has_neighbor(i, j):
-                    # 1. Pillar Collision
-                    # AABB: (i*CELL_SCALE + half_cell - half_pillar)
+                    # Logical center of the cell
                     cx = float(i) * CELL_SCALE + CELL_SCALE / 2.0
                     cz = float(j) * CELL_SCALE + CELL_SCALE / 2.0
-                    if self._check_circle_aabb_collision(
-                        px,
-                        pz,
-                        cx - half_pillar,
-                        cz - half_pillar,
-                        cx + half_pillar,
-                        cz + half_pillar,
-                    ):
-                        return True
 
-                    # 2. Right Slice Collision
+                    # 1. Right Slice Collision
                     if maze.is_wall(i + 1, j):
-                        # AABB: Connects (i, j) pillar to (i+1, j) pillar
-                        # Center x is at (i+1)*CELL_SCALE
-                        # Span is CELL_SCALE long
                         if self._check_circle_aabb_collision(
                             px,
                             pz,
@@ -117,7 +103,7 @@ class Player:
                         ):
                             return True
 
-                    # 3. Bottom Slice Collision
+                    # 2. Bottom Slice Collision
                     if maze.is_wall(i, j + 1):
                         if self._check_circle_aabb_collision(
                             px,
@@ -129,7 +115,7 @@ class Player:
                         ):
                             return True
 
-                    # 4. Left Slice Collision
+                    # 3. Left Slice Collision
                     if maze.is_wall(i - 1, j):
                         if self._check_circle_aabb_collision(
                             px,
@@ -141,7 +127,7 @@ class Player:
                         ):
                             return True
 
-                    # 5. Top Slice Collision
+                    # 4. Top Slice Collision
                     if maze.is_wall(i, j - 1):
                         if self._check_circle_aabb_collision(
                             px,

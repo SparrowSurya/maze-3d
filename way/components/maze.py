@@ -14,8 +14,6 @@ from ..asset import AssetType
 from ..player import ViewMode
 from ..scene.constants import (
     CELL_SCALE,
-    PILLAR_SIZE,
-    PILLAR_HEIGHT,
     SLICE_THICKNESS,
     SLICE_HEIGHT,
 )
@@ -59,31 +57,26 @@ class MazeChunk:
         self.radius = (max(width, height) * CELL_SCALE) * 0.8
 
         self.ground_transforms: Any = None
-        self.pillar_transforms: Any = None
         self.h_slice_transforms: Any = None
         self.v_slice_transforms: Any = None
 
         self.ground_count: int = 0
-        self.pillar_count: int = 0
         self.h_slice_count: int = 0
         self.v_slice_count: int = 0
 
     def rebuild(self, maze: Maze) -> None:
         """Populates the transform matrices for this specific chunk."""
         ground_m = []
-        pillar_m = []
         h_slice_m = []
         v_slice_m = []
 
         # Ground Transforms within this chunk
-        # Note: Ground logic uses maze dimensions * CELL_SCALE
         for gz in range(int(self.z_start * CELL_SCALE), int((self.z_start + self.height) * CELL_SCALE)):
             for gx in range(int(self.x_start * CELL_SCALE), int((self.x_start + self.width) * CELL_SCALE)):
                 pos = rl.Vector3(float(gx) + 0.5, 0.0, float(gz) + 0.5)
                 ground_m.append(rl.matrix_translate(pos.x, pos.y, pos.z))
 
         # Wall Geometry within this chunk
-        pillar_scale_m = rl.matrix_scale(PILLAR_SIZE, PILLAR_HEIGHT, PILLAR_SIZE)
         h_slice_scale_m = rl.matrix_scale(CELL_SCALE, SLICE_HEIGHT, SLICE_THICKNESS)
         v_slice_scale_m = rl.matrix_scale(SLICE_THICKNESS, SLICE_HEIGHT, CELL_SCALE)
 
@@ -91,25 +84,15 @@ class MazeChunk:
             for x in range(self.x_start, self.x_start + self.width):
                 if 0 <= x < maze.width and 0 <= z < maze.height:
                     if maze.grid[z][x] == 1 and maze.has_neighbor(x, z):
-                        # Pillar
-                        pillar_pos = rl.Vector3(
-                            float(x) * CELL_SCALE + CELL_SCALE / 2.0,
-                            PILLAR_HEIGHT / 2.0,
-                            float(z) * CELL_SCALE + CELL_SCALE / 2.0,
-                        )
-                        pillar_m.append(
-                            rl.matrix_multiply(
-                                pillar_scale_m,
-                                rl.matrix_translate(pillar_pos.x, pillar_pos.y, pillar_pos.z),
-                            )
-                        )
+                        pillar_z = float(z) * CELL_SCALE + CELL_SCALE / 2.0
+                        pillar_x = float(x) * CELL_SCALE + CELL_SCALE / 2.0
 
                         # Right Connection
                         if x + 1 < maze.width and maze.grid[z][x + 1] == 1:
                             h_slice_pos = rl.Vector3(
                                 float(x) * CELL_SCALE + CELL_SCALE,
                                 SLICE_HEIGHT / 2.0,
-                                float(z) * CELL_SCALE + CELL_SCALE / 2.0,
+                                pillar_z,
                             )
                             h_slice_m.append(
                                 rl.matrix_multiply(
@@ -121,7 +104,7 @@ class MazeChunk:
                         # Bottom Connection
                         if z + 1 < maze.height and maze.grid[z + 1][x] == 1:
                             v_slice_pos = rl.Vector3(
-                                float(x) * CELL_SCALE + CELL_SCALE / 2.0,
+                                pillar_x,
                                 SLICE_HEIGHT / 2.0,
                                 float(z) * CELL_SCALE + CELL_SCALE,
                             )
@@ -134,16 +117,12 @@ class MazeChunk:
 
         # Convert to C-Arrays
         self.ground_count = len(ground_m)
-        self.pillar_count = len(pillar_m)
         self.h_slice_count = len(h_slice_m)
         self.v_slice_count = len(v_slice_m)
 
         if self.ground_count > 0:
             self.ground_transforms = ffi.new(f"Matrix[{self.ground_count}]")
             for i, m in enumerate(ground_m): self.ground_transforms[i] = m
-        if self.pillar_count > 0:
-            self.pillar_transforms = ffi.new(f"Matrix[{self.pillar_count}]")
-            for i, m in enumerate(pillar_m): self.pillar_transforms[i] = m
         if self.h_slice_count > 0:
             self.h_slice_transforms = ffi.new(f"Matrix[{self.h_slice_count}]")
             for i, m in enumerate(h_slice_m): self.h_slice_transforms[i] = m
@@ -164,10 +143,7 @@ class MazeChunk:
             return True
             
         if view_mode == ViewMode.FIRST_PERSON:
-            # Cone check (approx 120 degree field of view)
             to_chunk = rl.vector3_normalize(rl.vector3_subtract(self.center, camera_pos))
-            # If the chunk is behind the player, dot product is < 0
-            # A threshold of 0.0 is a 180-degree half-space; 0.2 is roughly a 150-degree cone.
             if rl.vector3_dot_product(camera_forward, to_chunk) < 0.2:
                 return False
                 
@@ -181,8 +157,6 @@ class MazeChunk:
 
         if wall:
             wall.materials[0].shader = shader
-            if self.pillar_count > 0:
-                rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.pillar_transforms[0]), self.pillar_count)
             if self.h_slice_count > 0:
                 rl.draw_mesh_instanced(wall.meshes[0], wall.materials[0], ffi.addressof(self.h_slice_transforms[0]), self.h_slice_count)
             if self.v_slice_count > 0:
@@ -443,15 +417,8 @@ class MazeView(UiComponent3D[MazeConfig]):
                     and maze.grid[map_z][map_x] == 1
                     and maze.has_neighbor(map_x, map_z)
                 ):
-                    # Center Pillar
                     pillar_x = map_x * CELL_SCALE + CELL_SCALE / 2
                     pillar_z = map_z * CELL_SCALE + CELL_SCALE / 2
-                    if check_box(pillar_x, pillar_z, PILLAR_SIZE, PILLAR_SIZE, PILLAR_HEIGHT):
-                        return (
-                            (map_x, map_z)
-                            if (0 < map_x < maze.width - 1 and 0 < map_z < maze.height - 1)
-                            else None
-                        )
 
                     # Check Right Connection
                     if map_x + 1 < maze.width and maze.grid[map_z][map_x + 1] == 1:
