@@ -9,8 +9,6 @@ from typing import override, TYPE_CHECKING
 
 import pyray as rl
 
-from way.game.state import GameState
-
 from ..scene.constants import CELL_SCALE
 from .models import Component2DConfig, Alignment
 from .abstract import UiComponent2D
