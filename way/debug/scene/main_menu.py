@@ -11,9 +11,7 @@ if TYPE_CHECKING:
     from ...game.state import GameState
 
 
-__all__ = (
-    "MainMenuSceneDebug",
-)
+__all__ = ("MainMenuSceneDebug",)
 
 
 class MainMenuSceneDebug(SceneDebug):

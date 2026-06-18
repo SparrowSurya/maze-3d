@@ -11,9 +11,7 @@ from ..maze import Maze
 from ..player import Player
 
 
-__all__ = (
-    "GamePlayState",
-)
+__all__ = ("GamePlayState",)
 
 
 @dataclass(slots=True)

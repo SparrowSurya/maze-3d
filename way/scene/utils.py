@@ -41,14 +41,10 @@ def find_front_wall(player: Player, maze: Maze) -> tuple[int, int] | None:
     step_z = 1 if forward.z >= 0 else -1
 
     side_dist_x = (
-        (map_x + 1.0 - start_x) * delta_dist_x
-        if step_x == 1
-        else (start_x - map_x) * delta_dist_x
+        (map_x + 1.0 - start_x) * delta_dist_x if step_x == 1 else (start_x - map_x) * delta_dist_x
     )
     side_dist_z = (
-        (map_z + 1.0 - start_z) * delta_dist_z
-        if step_z == 1
-        else (start_z - map_z) * delta_dist_z
+        (map_z + 1.0 - start_z) * delta_dist_z if step_z == 1 else (start_z - map_z) * delta_dist_z
     )
 
     # Perform DDA with 3D validation

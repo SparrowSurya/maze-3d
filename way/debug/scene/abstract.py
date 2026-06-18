@@ -11,9 +11,7 @@ if TYPE_CHECKING:
     from ...game.state import GameState
 
 
-__all__ = (
-    "SceneDebug",
-)
+__all__ = ("SceneDebug",)
 
 
 class SceneDebug(UiComponent):

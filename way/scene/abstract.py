@@ -12,9 +12,7 @@ if TYPE_CHECKING:
     from ..game.state import GameState
 
 
-__all__ = (
-    "GameScene",
-)
+__all__ = ("GameScene",)
 
 
 class GameScene(UiComponent):

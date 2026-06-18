@@ -7,9 +7,7 @@ from __future__ import annotations
 from .abstract import SceneDebug
 
 
-__all__ = (
-    "GameEndSceneDebug",
-)
+__all__ = ("GameEndSceneDebug",)
 
 
 class GameEndSceneDebug(SceneDebug):

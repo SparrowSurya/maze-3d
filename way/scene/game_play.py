@@ -21,9 +21,7 @@ if TYPE_CHECKING:
     from ..game.state import GameState
 
 
-__all__ = (
-    "GamePlayScene",
-)
+__all__ = ("GamePlayScene",)
 
 
 class GamePlayScene(GameScene):
@@ -49,7 +47,7 @@ class GamePlayScene(GameScene):
             axe=axe,
             show_minimap=True,
         )
-        
+
         # Initialize components
         super().init(state)
 

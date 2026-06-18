@@ -2,7 +2,6 @@
 This submodule contains the game state related objects.
 """
 
-
 from __future__ import annotations
 from dataclasses import dataclass
 

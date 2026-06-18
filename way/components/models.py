@@ -2,7 +2,6 @@
 This submocdule contains various dataclass models used by components.
 """
 
-
 from __future__ import annotations
 from dataclasses import dataclass
 
@@ -45,7 +44,7 @@ class Component2DConfig:
     """
 
     def __post_init__(self) -> None:
-        assert(self.align is not None or self.pos is not None)
+        assert self.align is not None or self.pos is not None
 
 
 @dataclass

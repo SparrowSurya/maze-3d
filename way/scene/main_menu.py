@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from ..game.state import GameState
 
 
-__all__ = (
-    "MainMenuScene",
-)
+__all__ = ("MainMenuScene",)
 
 
 class MainMenuScene(GameScene):
@@ -32,12 +30,9 @@ class MainMenuScene(GameScene):
 
         text = "Press [ENTER] to Start"
         width = rl.measure_text(text, 20)
-        rl.draw_text(
-            text, (state.width - width) // 2, state.height // 2 + 45, 20, rl.LIGHTGRAY
-        )
+        rl.draw_text(text, (state.width - width) // 2, state.height // 2 + 45, 20, rl.LIGHTGRAY)
 
     @override
     def update(self, state: GameState, dt: float) -> None:
         if rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER):
             return state.manager.scene.set_scene(Scene.GAME_PLAY)
-

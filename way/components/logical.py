@@ -10,9 +10,7 @@ if TYPE_CHECKING:
     from ..game.state import GameState
 
 
-__all__ = (
-    "LayoutCacheMixin",
-)
+__all__ = ("LayoutCacheMixin",)
 
 
 class LayoutCacheMixin[TCache](abc.ABC):
@@ -34,9 +32,11 @@ class LayoutCacheMixin[TCache](abc.ABC):
 
     def _is_cache_stale(self, state: GameState) -> bool:
         """Determines if the screen size or config has changed."""
-        return (self._layout_cache is None or
-                state.width != self._last_width or
-                state.height != self._last_height)
+        return (
+            self._layout_cache is None
+            or state.width != self._last_width
+            or state.height != self._last_height
+        )
 
     @abc.abstractmethod
     def compute_layout(self, state: GameState) -> TCache:

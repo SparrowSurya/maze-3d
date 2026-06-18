@@ -2,7 +2,6 @@
 This submodule defines abstract & base classes for UI components.
 """
 
-
 from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING, override

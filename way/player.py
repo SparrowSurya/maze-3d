@@ -118,7 +118,6 @@ class Player:
                             return True
         return False
 
-
     def _check_circle_aabb_collision(
         self, px: float, pz: float, min_x: float, min_z: float, max_x: float, max_z: float
     ) -> bool:

@@ -2,7 +2,6 @@
 This submodule contains the maze state related classes and functions.
 """
 
-
 from __future__ import annotations
 import random
 from collections import deque

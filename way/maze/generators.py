@@ -2,7 +2,6 @@
 This submodule contains the maze generator classes.
 """
 
-
 import sys
 import abc
 import contextlib

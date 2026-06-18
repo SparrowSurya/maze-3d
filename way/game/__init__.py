@@ -34,22 +34,27 @@ class Game:
                     Scene.GAME_PLAY: GamePlaySceneDebug(),
                     Scene.GAME_END: GameEndSceneDebug(),
                 },
-            ) if debug else None,
+            )
+            if debug
+            else None,
             manager=GameManager(
                 asset=AssetManager(),
-                scene=SceneManager({
-                    Scene.MAIN_MENU: MainMenuScene(),
-                    Scene.GAME_PLAY: GamePlayScene(
-                        grid_size=40,
-                        components=[
-                            MazeView(),
-                            CompassUi(),
-                            MinimapUi(),
-                        ],
-                    ),
-                    Scene.GAME_END: GameEndScene(),
-                }, Scene.MAIN_MENU),
-            )
+                scene=SceneManager(
+                    {
+                        Scene.MAIN_MENU: MainMenuScene(),
+                        Scene.GAME_PLAY: GamePlayScene(
+                            grid_size=40,
+                            components=[
+                                MazeView(),
+                                CompassUi(),
+                                MinimapUi(),
+                            ],
+                        ),
+                        Scene.GAME_END: GameEndScene(),
+                    },
+                    Scene.MAIN_MENU,
+                ),
+            ),
         )
 
     def _init_window(self) -> None:
@@ -130,7 +135,6 @@ class Game:
                         debug_scene.init(self.state)
                     else:
                         debug_scene.clean(self.state)
-
 
             rl.begin_texture_mode(target)
             rl.clear_background(rl.SKYBLUE)
@@ -226,24 +230,15 @@ class Game:
         rl.draw_rectangle_lines_ex(debug.panel_rect, 1, rl.DARKGRAY)
 
         # Title Bar
-        title_bar = rl.Rectangle(
-            debug.panel_rect.x, debug.panel_rect.y, debug.panel_rect.width, 20
-        )
+        title_bar = rl.Rectangle(debug.panel_rect.x, debug.panel_rect.y, debug.panel_rect.width, 20)
         rl.draw_rectangle_rec(title_bar, rl.DARKGRAY)
         rl.draw_text(
-            "DEBUG PANEL",
-            int(debug.panel_rect.x + 5),
-            int(debug.panel_rect.y + 5),
-            10,
-            rl.RAYWHITE
+            "DEBUG PANEL", int(debug.panel_rect.x + 5), int(debug.panel_rect.y + 5), 10, rl.RAYWHITE
         )
 
         # Close Button
         close_btn_rect = rl.Rectangle(
-            debug.panel_rect.x + debug.panel_rect.width - 20,
-            debug.panel_rect.y,
-            20,
-            20
+            debug.panel_rect.x + debug.panel_rect.width - 20, debug.panel_rect.y, 20, 20
         )
         if rl.gui_button(close_btn_rect, "X"):
             debug.view_scene = False
@@ -252,11 +247,17 @@ class Game:
 
         # Resize handle
         rl.draw_triangle(
-            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
-                        debug.panel_rect.y + debug.panel_rect.height - 12),
-            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 12,
-                        debug.panel_rect.y + debug.panel_rect.height - 2),
-            rl.Vector2(debug.panel_rect.x + debug.panel_rect.width - 2,
-                        debug.panel_rect.y + debug.panel_rect.height - 2),
-            rl.GOLD
+            rl.Vector2(
+                debug.panel_rect.x + debug.panel_rect.width - 2,
+                debug.panel_rect.y + debug.panel_rect.height - 12,
+            ),
+            rl.Vector2(
+                debug.panel_rect.x + debug.panel_rect.width - 12,
+                debug.panel_rect.y + debug.panel_rect.height - 2,
+            ),
+            rl.Vector2(
+                debug.panel_rect.x + debug.panel_rect.width - 2,
+                debug.panel_rect.y + debug.panel_rect.height - 2,
+            ),
+            rl.GOLD,
         )

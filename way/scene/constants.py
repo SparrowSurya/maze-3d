@@ -2,7 +2,6 @@
 This submodule contains the constants used in this submodule.
 """
 
-
 from enum import StrEnum, auto
 
 

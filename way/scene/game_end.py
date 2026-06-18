@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from ..game.state import GameState
 
 
-__all__ = (
-    "GameEndScene",
-)
+__all__ = ("GameEndScene",)
 
 
 class GameEndScene(GameScene):
