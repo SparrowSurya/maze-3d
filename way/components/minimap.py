@@ -12,6 +12,7 @@ import pyray as rl
 from ..scene.constants import CELL_SCALE
 from .models import Component2DConfig, Alignment
 from .abstract import UiComponent2D
+from .logical import LayoutCacheMixin
 
 if TYPE_CHECKING:
     from ..game.state import GameState
@@ -24,6 +25,16 @@ __all__ = (
 
 
 @dataclass(slots=True)
+class MinimapLayout:
+    """Computed layout cache for minimap."""
+
+    rect: rl.Rectangle
+    cell_size: float
+    view_lx: float
+    view_lz: float
+
+
+@dataclass(slots=True)
 class MinimapConfig(Component2DConfig):
     """Minimap configuration."""
 
@@ -31,7 +42,7 @@ class MinimapConfig(Component2DConfig):
     """Descrbies the neighbour levels to show around the player cells."""
 
 
-class MinimapUi(UiComponent2D[MinimapConfig]):
+class MinimapUi(UiComponent2D[MinimapConfig], LayoutCacheMixin[MinimapLayout]):
     """Minimap component in the game."""
 
     @property
@@ -56,9 +67,6 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
             align = self.config.align or Alignment.center()
 
             # Map align.x (-1.0 to 1.0) to screen X
-            # -1.0 -> offset.x
-            #  1.0 -> width - offset.x - size.x
-            #  0.0 -> center - size.x / 2
             x = (float(state.width) - size.x) / 2.0 + align.x * (
                 float(state.width) / 2.0 - size.x / 2.0 - self.config.offset.x
             )
@@ -76,32 +84,11 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
         return rl.Rectangle(x, y, size.x, size.y)
 
     @override
-    def draw(self, state: GameState) -> None:
-        if not state.gameplay or not state.gameplay.show_minimap:
-            return
-
-        rect = self._get_rect(state)
-        rl.begin_scissor_mode(int(rect.x), int(rect.y), int(rect.width), int(rect.height))
-
-        self.draw_base(state)
-        self.draw_walls(state)
-        self.draw_extra(state)
-
-        rl.end_scissor_mode()
-        rl.draw_rectangle_lines_ex(rect, 1, rl.BLACK)
-
-    def draw_base(self, state: GameState) -> None:
-        """Draws the base layout of the minimap."""
-        rect = self._get_rect(state)
-        rl.draw_rectangle_rec(rect, rl.fade(rl.BLACK, 0.7))
-
-    def draw_walls(self, state: GameState) -> None:
-        """Draws the walls as lines."""
+    def compute_layout(self, state: GameState) -> MinimapLayout:
         assert state.gameplay is not None
 
         player = state.gameplay.player
         maze = state.gameplay.maze
-
         rect = self._get_rect(state)
         level = self.config.neighbours_level
         cell_count = 2 * level + 1
@@ -112,8 +99,6 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
         pgz = player.position.z / CELL_SCALE
 
         # Calculate clamped view center
-        # Pillar centers are at [0.5, maze.width - 0.5]
-        # Padding is in logical cells
         half_view = cell_count / 2.0
         pad_x, pad_y = self.config.padding.x, self.config.padding.y
 
@@ -129,75 +114,101 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
         view_lx = view_cx - half_view
         view_lz = view_cz - half_view
 
+        return MinimapLayout(
+            rect=rect,
+            cell_size=cell_size,
+            view_lx=view_lx,
+            view_lz=view_lz,
+        )
+
+    @override
+    def draw(self, state: GameState) -> None:
+        if not state.gameplay or not state.gameplay.show_minimap:
+            return
+
+        layout = self.get_layout(state)
+        rl.begin_scissor_mode(
+            int(layout.rect.x),
+            int(layout.rect.y),
+            int(layout.rect.width),
+            int(layout.rect.height),
+        )
+
+        self.draw_base(state, layout)
+        self.draw_walls(state, layout)
+        self.draw_extra(state, layout)
+
+        rl.end_scissor_mode()
+        rl.draw_rectangle_lines_ex(layout.rect, 1, rl.BLACK)
+
+    def draw_base(self, state: GameState, layout: MinimapLayout) -> None:
+        """Draws the base layout of the minimap."""
+        rl.draw_rectangle_rec(layout.rect, rl.fade(rl.BLACK, 0.7))
+
+    def draw_walls(self, state: GameState, layout: MinimapLayout) -> None:
+        """Draws the walls as lines."""
+        assert state.gameplay is not None
+        maze = state.gameplay.maze
+        level = self.config.neighbours_level
+        cell_count = 2 * level + 1
+
         # Iterate through logical cells that overlap with the view
-        start_x = int(math.floor(view_lx))
-        end_x = int(math.ceil(view_lx + cell_count))
-        start_z = int(math.floor(view_lz))
-        end_z = int(math.ceil(view_lz + cell_count))
+        start_x = int(math.floor(layout.view_lx))
+        end_x = int(math.ceil(layout.view_lx + cell_count))
+        start_z = int(math.floor(layout.view_lz))
+        end_z = int(math.ceil(layout.view_lz + cell_count))
 
         for z in range(start_z, end_z + 1):
             for x in range(start_x, end_x + 1):
                 if 0 <= x < maze.width and 0 <= z < maze.height:
                     if maze.is_wall(x, z):
                         # Calculate screen coordinates for the CENTER of the logical cell
-                        cx = rect.x + (float(x) + 0.5 - view_lx) * cell_size
-                        cz = rect.y + (float(z) + 0.5 - view_lz) * cell_size
+                        cx = layout.rect.x + (float(x) + 0.5 - layout.view_lx) * layout.cell_size
+                        cz = layout.rect.y + (float(z) + 0.5 - layout.view_lz) * layout.cell_size
 
                         # Connections only
                         if x + 1 < maze.width and maze.is_wall(x + 1, z):
                             rl.draw_line_ex(
                                 rl.Vector2(cx, cz),
-                                rl.Vector2(cx + cell_size, cz),
+                                rl.Vector2(cx + layout.cell_size, cz),
                                 1.0,
                                 rl.GRAY,
                             )
                         if z + 1 < maze.height and maze.is_wall(x, z + 1):
                             rl.draw_line_ex(
                                 rl.Vector2(cx, cz),
-                                rl.Vector2(cx, cz + cell_size),
+                                rl.Vector2(cx, cz + layout.cell_size),
                                 1.0,
                                 rl.GRAY,
                             )
 
-    def draw_extra(self, state: GameState) -> None:
+    def draw_extra(self, state: GameState, layout: MinimapLayout) -> None:
         """Draws the extra things in maze like player, destination, pickups etc."""
         assert state.gameplay is not None
 
-        rect = self._get_rect(state)
         level = self.config.neighbours_level
-        maze = state.gameplay.maze
         cell_count = 2 * level + 1
-        cell_size = rect.width / cell_count
 
         pgx = state.gameplay.player.position.x / CELL_SCALE
         pgz = state.gameplay.player.position.z / CELL_SCALE
 
-        # Use the same clamped view center logic as draw_walls
-        half_view = cell_count / 2.0
-        pad_x, pad_y = self.config.padding.x, self.config.padding.y
-
-        min_lx, max_rx = 0.5 - pad_x, (maze.width - 0.5) + pad_x
-        min_lz, max_rz = 0.5 - pad_y, (maze.height - 0.5) + pad_y
-
-        min_cx, max_cx = min_lx + half_view, max_rx - half_view
-        min_cz, max_cz = min_lz + half_view, max_rz - half_view
-
-        view_cx = (min_lx + max_rx) / 2.0 if min_cx > max_cx else max(min_cx, min(max_cx, pgx))
-        view_cz = (min_lz + max_rz) / 2.0 if min_cz > max_cz else max(min_cz, min(max_cz, pgz))
-
-        view_lx = view_cx - half_view
-        view_lz = view_cz - half_view
-
         # Destination
         dgx = state.gameplay.dest.x / CELL_SCALE
         dgz = state.gameplay.dest.z / CELL_SCALE
-        if view_lx <= dgx < view_lx + cell_count and view_lz <= dgz < view_lz + cell_count:
+        if (
+            layout.view_lx <= dgx < layout.view_lx + cell_count
+            and layout.view_lz <= dgz < layout.view_lz + cell_count
+        ):
             rl.draw_rectangle_v(
                 rl.Vector2(
-                    rect.x + (dgx - view_lx) * cell_size - cell_size / 4,
-                    rect.y + (dgz - view_lz) * cell_size - cell_size / 4,
+                    layout.rect.x
+                    + (dgx - layout.view_lx) * layout.cell_size
+                    - layout.cell_size / 4,
+                    layout.rect.y
+                    + (dgz - layout.view_lz) * layout.cell_size
+                    - layout.cell_size / 4,
                 ),
-                rl.Vector2(cell_size / 2, cell_size / 2),
+                rl.Vector2(layout.cell_size / 2, layout.cell_size / 2),
                 rl.GOLD,
             )
 
@@ -205,21 +216,28 @@ class MinimapUi(UiComponent2D[MinimapConfig]):
         if state.gameplay.axe:
             agx = state.gameplay.axe.x / CELL_SCALE
             agz = state.gameplay.axe.z / CELL_SCALE
-            if view_lx <= agx < view_lx + cell_count and view_lz <= agz < view_lz + cell_count:
+            if (
+                layout.view_lx <= agx < layout.view_lx + cell_count
+                and layout.view_lz <= agz < layout.view_lz + cell_count
+            ):
                 rl.draw_rectangle_v(
                     rl.Vector2(
-                        rect.x + (agx - view_lx) * cell_size - cell_size / 4,
-                        rect.y + (agz - view_lz) * cell_size - cell_size / 4,
+                        layout.rect.x
+                        + (agx - layout.view_lx) * layout.cell_size
+                        - layout.cell_size / 4,
+                        layout.rect.y
+                        + (agz - layout.view_lz) * layout.cell_size
+                        - layout.cell_size / 4,
                     ),
-                    rl.Vector2(cell_size / 2, cell_size / 2),
+                    rl.Vector2(layout.cell_size / 2, layout.cell_size / 2),
                     rl.BLUE,
                 )
 
         # Player
-        px = rect.x + (pgx - view_lx) * cell_size
-        py = rect.y + (pgz - view_lz) * cell_size
+        px = layout.rect.x + (pgx - layout.view_lx) * layout.cell_size
+        py = layout.rect.y + (pgz - layout.view_lz) * layout.cell_size
 
-        dir_len = cell_size * 0.8
+        dir_len = layout.cell_size * 0.8
         dx = math.sin(state.gameplay.player.yaw) * dir_len
         dz = -math.cos(state.gameplay.player.yaw) * dir_len
 
