@@ -49,6 +49,7 @@ In "The Way Out", the maze is more than just a path; it is a strategic puzzle. P
 
 ## Always
 - When providing code updates, only modify the specific functions or blocks requested. Do not make unprompted rewrites or overwrite any manual changes I have already made to the code.
+- Always run lint and type check after writing code and format if everything is fine.
 
 
 ## Controls

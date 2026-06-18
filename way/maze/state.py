@@ -23,16 +23,26 @@ class Maze:
     grid: list[list[int]]
     """Maze 2d grid."""
 
+    version: int = 0
+    """Incremented every time the maze changes."""
+
     def __init__(self, grid: list[list[int]]) -> None:
         self.grid = grid
         self.height = len(grid)
         self.width = len(grid[0]) if self.height > 0 else 0
+        self.version = 0
 
     @classmethod
     def from_strategy(cls, strategy: MazeGenerator, rows: int, cols: int) -> Maze:
         """Create a maze from give strategy."""
         grid = strategy.generate(rows, cols)
         return cls(grid)
+
+    def destroy_wall(self, x: int, z: int) -> None:
+        """Destroys the wall at (x, z) and increments version."""
+        if 0 <= z < self.height and 0 <= x < self.width:
+            self.grid[z][x] = 0
+            self.version += 1
 
     def is_wall(self, x: int, z: int) -> bool:
         """Checks if the given coordinates (x, z) correspond to a wall cell in the maze."""

@@ -19,7 +19,7 @@ from ..scene.constants import (
 )
 from .models import Component3DConfig
 from .abstract import UiComponent3D
-from ..scene.constants import Scene
+from ..scene.utils import find_front_wall
 from ..maze import Maze
 from ..player import Player
 
@@ -200,7 +200,7 @@ class MazeView(UiComponent3D[MazeConfig]):
         super().__init__(config)
         self._chunks: list[MazeChunk] = []
         self._last_maze_id: int = -1
-        self._last_grid_sum: int = -1
+        self._last_maze_version: int = -1
         self._instancing_shader: rl.Shader | None = None
 
     @property
@@ -209,12 +209,15 @@ class MazeView(UiComponent3D[MazeConfig]):
         return MazeConfig()
 
     @override
+    def init(self, state: GameState) -> None:
+        """Initializes the maze view resources."""
+        if self._instancing_shader is None:
+            self._instancing_shader = rl.load_shader("assets/shaders/vert/instancing.vs", "")
+
+    @override
     def draw(self, state: GameState) -> None:
         if state.gameplay is None:
             return
-
-        if self._instancing_shader is None:
-            self._instancing_shader = rl.load_shader("assets/shaders/vert/instancing.vs", "")
 
         if self._should_rebuild(state.gameplay.maze):
             self._rebuild_chunks(state.gameplay.maze)
@@ -229,10 +232,9 @@ class MazeView(UiComponent3D[MazeConfig]):
 
     def _should_rebuild(self, maze: Maze) -> bool:
         """Checks if the maze structure has changed."""
-        grid_sum = sum(sum(row) for row in maze.grid)
-        if id(maze) != self._last_maze_id or grid_sum != self._last_grid_sum:
+        if id(maze) != self._last_maze_id or maze.version != self._last_maze_version:
             self._last_maze_id = id(maze)
-            self._last_grid_sum = grid_sum
+            self._last_maze_version = maze.version
             return True
         return False
 
@@ -312,7 +314,7 @@ class MazeView(UiComponent3D[MazeConfig]):
 
         # Wall Highlight
         if player.axe_count > 0 and rl.is_key_down(rl.KeyboardKey.KEY_X):
-            target = self.front_wall(player, maze)
+            target = find_front_wall(player, maze)
             if target:
                 tx, tz = target
                 highlight_pos = rl.Vector3(
@@ -339,7 +341,7 @@ class MazeView(UiComponent3D[MazeConfig]):
 
         # Crosshair + highlight
         if rl.is_key_down(rl.KeyboardKey.KEY_X):
-            target_wall = self.front_wall(player, maze)
+            target_wall = find_front_wall(player, maze)
             crosshair_color = rl.RED if (target_wall and player.axe_count > 0) else rl.GRAY
             rl.draw_circle(state.width // 2, state.height // 2, 4, crosshair_color)
         else:
@@ -347,167 +349,12 @@ class MazeView(UiComponent3D[MazeConfig]):
 
     @override
     def update(self, state: GameState, dt: float) -> None:
-        if state.gameplay is None:
-            return
+        """Update is now handled by GamePlayScene for core logic."""
+        pass
 
-        is_shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(
-            rl.KeyboardKey.KEY_RIGHT_SHIFT
-        )
-
-        if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER):
-            return state.manager.scene.set_scene(Scene.MAIN_MENU)
-
-        state.gameplay.player.update(dt, state.gameplay.maze)
-
-        # Win condition
-        if rl.vector3_distance(state.gameplay.player.position, state.gameplay.dest) < 0.5:
-            return state.manager.scene.set_scene(Scene.GAME_END)
-
-        # Axe collection
-        if state.gameplay.axe:
-            if rl.vector3_distance(state.gameplay.player.position, state.gameplay.axe) < 0.5:
-                state.gameplay.player.axe_count += 1
-                state.gameplay.axe = None
-
-        is_ctrl = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_CONTROL) or rl.is_key_down(
-            rl.KeyboardKey.KEY_RIGHT_CONTROL
-        )
-
-        # Wall destruction
-        if (
-            state.gameplay.player.axe_count > 0
-            and is_ctrl
-            and rl.is_key_pressed(rl.KeyboardKey.KEY_X)
-        ):
-            target = self.front_wall(state.gameplay.player, state.gameplay.maze)
-            if target:
-                tx, tz = target
-                state.gameplay.maze.grid[tz][tx] = 0
-                state.gameplay.player.axe_count -= 1
-
-        if is_shift and rl.is_key_pressed(rl.KeyboardKey.KEY_V):
-            if state.gameplay.player.view_mode == ViewMode.FIRST_PERSON:
-                state.gameplay.player.view_mode = ViewMode.TOP_DOWN
-            else:
-                state.gameplay.player.view_mode = ViewMode.FIRST_PERSON
-
-    def front_wall(self, player: Player, maze: Maze) -> tuple[int, int] | None:
-        """Finds the wall the player is looking at with pixel-perfect accuracy."""
-        ray_start = player.position
-        forward = rl.Vector3(
-            math.sin(player.yaw) * math.cos(player.pitch),
-            math.sin(player.pitch),
-            -math.cos(player.yaw) * math.cos(player.pitch),
-        )
-        ray = rl.Ray(ray_start, forward)
-
-        max_dist = 5.0  # Max cells to check
-
-        # Grid space start (0.1 offset to skip immediate player collision)
-        start_x = (player.position.x + forward.x * 0.1) / CELL_SCALE
-        start_z = (player.position.z + forward.z * 0.1) / CELL_SCALE
-
-        map_x, map_z = int(start_x), int(start_z)
-
-        delta_dist_x = abs(1.0 / forward.x) * CELL_SCALE if forward.x != 0 else 1e30
-        delta_dist_z = abs(1.0 / forward.z) * CELL_SCALE if forward.z != 0 else 1e30
-
-        step_x = 1 if forward.x >= 0 else -1
-        step_z = 1 if forward.z >= 0 else -1
-
-        side_dist_x = (
-            (map_x + 1.0 - start_x) * delta_dist_x
-            if step_x == 1
-            else (start_x - map_x) * delta_dist_x
-        )
-        side_dist_z = (
-            (map_z + 1.0 - start_z) * delta_dist_z
-            if step_z == 1
-            else (start_z - map_z) * delta_dist_z
-        )
-
-        # Perform DDA with 3D validation
-        player_cell = (int(player.position.x / CELL_SCALE), int(player.position.z / CELL_SCALE))
-
-        # Helper to check collision with a specific box
-        def check_box(px: float, pz: float, sx: float, sz: float, h: float) -> bool:
-            box = rl.BoundingBox(
-                rl.Vector3(px - sx / 2, 0.0, pz - sz / 2), rl.Vector3(px + sx / 2, h, pz + sz / 2)
-            )
-            return rl.get_ray_collision_box(ray, box).hit
-
-        dist_traveled = 0.0
-        while dist_traveled < (max_dist * CELL_SCALE):
-            # If current cell is a wall, check visual geometry
-            if 0 <= map_x < maze.width and 0 <= map_z < maze.height:
-                if (
-                    (map_x, map_z) != player_cell
-                    and maze.grid[map_z][map_x] == 1
-                    and maze.has_neighbor(map_x, map_z)
-                ):
-                    pillar_x = map_x * CELL_SCALE + CELL_SCALE / 2
-                    pillar_z = map_z * CELL_SCALE + CELL_SCALE / 2
-
-                    # Check Right Connection
-                    if map_x + 1 < maze.width and maze.grid[map_z][map_x + 1] == 1:
-                        if check_box(
-                            map_x * CELL_SCALE + CELL_SCALE,
-                            pillar_z,
-                            CELL_SCALE,
-                            SLICE_THICKNESS,
-                            SLICE_HEIGHT,
-                        ):
-                            return (
-                                (map_x, map_z)
-                                if (0 < map_x < maze.width - 1 and 0 < map_z < maze.height - 1)
-                                else None
-                            )
-
-                    # Check Bottom Connection
-                    if map_z + 1 < maze.height and maze.grid[map_z + 1][map_x] == 1:
-                        if check_box(
-                            pillar_x,
-                            map_z * CELL_SCALE + CELL_SCALE,
-                            SLICE_THICKNESS,
-                            CELL_SCALE,
-                            SLICE_HEIGHT,
-                        ):
-                            return (
-                                (map_x, map_z)
-                                if (0 < map_x < maze.width - 1 and 0 < map_z < maze.height - 1)
-                                else None
-                            )
-
-                    # Check Left Connection (Right connection of map_x - 1)
-                    if map_x - 1 >= 0 and maze.grid[map_z][map_x - 1] == 1:
-                        if check_box(
-                            map_x * CELL_SCALE, pillar_z, CELL_SCALE, SLICE_THICKNESS, SLICE_HEIGHT
-                        ):
-                            return (
-                                (map_x, map_z)
-                                if (0 < map_x < maze.width - 1 and 0 < map_z < maze.height - 1)
-                                else None
-                            )
-
-                    # Check Top Connection (Bottom connection of map_z - 1)
-                    if map_z - 1 >= 0 and maze.grid[map_z - 1][map_x] == 1:
-                        if check_box(
-                            pillar_x, map_z * CELL_SCALE, SLICE_THICKNESS, CELL_SCALE, SLICE_HEIGHT
-                        ):
-                            return (
-                                (map_x, map_z)
-                                if (0 < map_x < maze.width - 1 and 0 < map_z < maze.height - 1)
-                                else None
-                            )
-
-            # DDA Step
-            if side_dist_x < side_dist_z:
-                dist_traveled = side_dist_x
-                side_dist_x += delta_dist_x
-                map_x += step_x
-            else:
-                dist_traveled = side_dist_z
-                side_dist_z += delta_dist_z
-                map_z += step_z
-
-        return None
+    @override
+    def clean(self, state: GameState) -> None:
+        """Cleanup maze resources."""
+        if self._instancing_shader:
+            rl.unload_shader(self._instancing_shader)
+            self._instancing_shader = None
