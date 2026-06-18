@@ -45,6 +45,9 @@ class MinimapConfig(Component2DConfig):
 class MinimapUi(UiComponent2D[MinimapConfig], LayoutCacheMixin[MinimapLayout]):
     """Minimap component in the game."""
 
+    _last_px: float = -1.0
+    _last_pz: float = -1.0
+
     @property
     @override
     def default_config(self) -> MinimapConfig:
@@ -57,9 +60,18 @@ class MinimapUi(UiComponent2D[MinimapConfig], LayoutCacheMixin[MinimapLayout]):
             padding=rl.Vector2(1.0, 1.0),
         )
 
+    @override
+    def _is_cache_stale(self, state: GameState) -> bool:
+        if super()._is_cache_stale(state):
+            return True
+        if not state.gameplay:
+            return False
+        player = state.gameplay.player
+        return player.position.x != self._last_px or player.position.z != self._last_pz
+
     def _get_rect(self, state: GameState) -> rl.Rectangle:
         """Calculates the rectangle of the minimap based on config and screen size."""
-        size = self.config.size or self.default_config.size
+        size = self.config.size
         assert size is not None
 
         if self.config.pos is None:
@@ -88,6 +100,9 @@ class MinimapUi(UiComponent2D[MinimapConfig], LayoutCacheMixin[MinimapLayout]):
         assert state.gameplay is not None
 
         player = state.gameplay.player
+        self._last_px = player.position.x
+        self._last_pz = player.position.z
+
         maze = state.gameplay.maze
         rect = self._get_rect(state)
         level = self.config.neighbours_level
