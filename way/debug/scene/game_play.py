@@ -15,9 +15,7 @@ if TYPE_CHECKING:
     from ...game.state import GameState
 
 
-__all__ = (
-    "GamePlaySceneDebug",
-)
+__all__ = ("GamePlaySceneDebug",)
 
 
 class GamePlaySceneDebug(SceneDebug):
@@ -44,10 +42,7 @@ class GamePlaySceneDebug(SceneDebug):
         # Scissor area for the map (excluding title bar and tool panel)
         tools_width = 80
         map_area = rl.Rectangle(
-            panel.x + 2,
-            panel.y + 22,
-            panel.width - tools_width - 4,
-            panel.height - 24
+            panel.x + 2, panel.y + 22, panel.width - tools_width - 4, panel.height - 24
         )
 
         # Prevent interaction if we are dragging or resizing the parent window
@@ -73,9 +68,8 @@ class GamePlaySceneDebug(SceneDebug):
             self.camera_offset_y = (mouse_pos.y - panel.y - 20) - (mouse_grid_y * self.zoom)
 
         # Pan (Shift + Left Click)
-        is_shift = (
-            rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT)
-            or rl.is_key_down(rl.KeyboardKey.KEY_RIGHT_SHIFT)
+        is_shift = rl.is_key_down(rl.KeyboardKey.KEY_LEFT_SHIFT) or rl.is_key_down(
+            rl.KeyboardKey.KEY_RIGHT_SHIFT
         )
         if in_map and is_shift and rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT):
             # Mouse delta is already in screen pixels
@@ -90,31 +84,33 @@ class GamePlaySceneDebug(SceneDebug):
 
             if 0 <= grid_x < maze.width and 0 <= grid_z < maze.height:
                 if self.current_tool == 0:  # WALL
-                    maze.grid[grid_z][grid_x] = 1
+                    if maze.grid[grid_z][grid_x] != 1:
+                        maze.grid[grid_z][grid_x] = 1
+                        maze.version += 1
                 elif self.current_tool == 1:  # WAY
-                    maze.grid[grid_z][grid_x] = 0
+                    if maze.grid[grid_z][grid_x] != 0:
+                        maze.grid[grid_z][grid_x] = 0
+                        maze.version += 1
                 elif self.current_tool == 2:  # DEST
                     state.gameplay.dest = rl.Vector3(
-                        grid_x * CELL_SCALE + CELL_SCALE / 2.0, 0.5,
-                        grid_z * CELL_SCALE + CELL_SCALE / 2.0
+                        grid_x * CELL_SCALE + CELL_SCALE / 2.0,
+                        0.5,
+                        grid_z * CELL_SCALE + CELL_SCALE / 2.0,
                     )
                 elif self.current_tool == 3:  # AXE
                     state.gameplay.axe = rl.Vector3(
-                        grid_x * CELL_SCALE + CELL_SCALE / 2.0, 0.5,
-                        grid_z * CELL_SCALE + CELL_SCALE / 2.0
+                        grid_x * CELL_SCALE + CELL_SCALE / 2.0,
+                        0.5,
+                        grid_z * CELL_SCALE + CELL_SCALE / 2.0,
                     )
                 elif self.current_tool == 4:  # PLAYER
                     if not maze.is_wall(grid_x, grid_z):
                         player.position.x = grid_x * CELL_SCALE + CELL_SCALE / 2.0
                         player.position.z = grid_z * CELL_SCALE + CELL_SCALE / 2.0
 
-
         # Draw UI background for tools
         ui_rect = rl.Rectangle(
-            panel.x + panel.width - tools_width,
-            panel.y + 20,
-            tools_width,
-            panel.height - 20
+            panel.x + panel.width - tools_width, panel.y + 20, tools_width, panel.height - 20
         )
         rl.draw_rectangle_rec(ui_rect, rl.fade(rl.DARKGRAY, 0.9))
 
@@ -123,27 +119,18 @@ class GamePlaySceneDebug(SceneDebug):
         for i, tool_name in enumerate(tools):
             btn_rect = rl.Rectangle(ui_rect.x + 5, ui_rect.y + 5 + i * 25, tools_width - 10, 20)
 
-            # Highlighting the active tool
-            if self.current_tool == i:
-                rl.draw_rectangle_rec(btn_rect, rl.GOLD)
-
-            # Use standard gui_button which returns True if clicked
-            if rl.gui_button(btn_rect, tool_name):
-                if self.current_tool != i:
-                    self.current_tool = i
-
+            # Use gui_toggle to show and handle tool selection
+            # Raylib's gui_toggle in this version takes a pointer to a bool
+            active_ptr = rl.ffi.new("bool *", self.current_tool == i)
+            rl.gui_toggle(btn_rect, tool_name, active_ptr)
+            if active_ptr[0]:
+                self.current_tool = i
 
         # Axe Count Controls
         rl.draw_text("AXES", int(ui_rect.x + 5), int(ui_rect.y + 140), 10, rl.RAYWHITE)
         if rl.gui_button(rl.Rectangle(ui_rect.x + 5, ui_rect.y + 155, 20, 20), "-"):
             player.axe_count = max(0, player.axe_count - 1)
-        rl.draw_text(
-            str(player.axe_count),
-            int(ui_rect.x + 35),
-            int(ui_rect.y + 160),
-            10,
-            rl.GOLD
-        )
+        rl.draw_text(str(player.axe_count), int(ui_rect.x + 35), int(ui_rect.y + 160), 10, rl.GOLD)
         if rl.gui_button(rl.Rectangle(ui_rect.x + 55, ui_rect.y + 155, 20, 20), "+"):
             player.axe_count += 1
 
@@ -167,8 +154,12 @@ class GamePlaySceneDebug(SceneDebug):
                 sy = panel.y + 20 + z * self.zoom + self.camera_offset_y
 
                 # Culling: only draw if visible in map_area
-                if (sx + self.zoom < map_area.x or sx > map_area.x + map_area.width or
-                    sy + self.zoom < map_area.y or sy > map_area.y + map_area.height):
+                if (
+                    sx + self.zoom < map_area.x
+                    or sx > map_area.x + map_area.width
+                    or sy + self.zoom < map_area.y
+                    or sy > map_area.y + map_area.height
+                ):
                     continue
 
                 color = rl.BLACK if maze.grid[z][x] == 1 else rl.WHITE
@@ -207,4 +198,3 @@ class GamePlaySceneDebug(SceneDebug):
         rl.draw_line_ex(rl.Vector2(px, py), rl.Vector2(dir_x, dir_y), 2.0, rl.YELLOW)
 
         rl.end_scissor_mode()
-
