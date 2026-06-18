@@ -92,6 +92,7 @@ class Player:
                     cz = float(j) * CELL_SCALE + CELL_SCALE / 2.0
 
                     # 1. Right Slice Collision
+                    # Checks the wall between (i, j) and (i+1, j)
                     if maze.is_wall(i + 1, j):
                         if self._check_circle_aabb_collision(
                             px,
@@ -104,6 +105,7 @@ class Player:
                             return True
 
                     # 2. Bottom Slice Collision
+                    # Checks the wall between (i, j) and (i, j+1)
                     if maze.is_wall(i, j + 1):
                         if self._check_circle_aabb_collision(
                             px,
@@ -112,30 +114,6 @@ class Player:
                             float(j) * CELL_SCALE + CELL_SCALE / 2.0,
                             cx + half_slice,
                             float(j + 1) * CELL_SCALE + CELL_SCALE / 2.0,
-                        ):
-                            return True
-
-                    # 3. Left Slice Collision
-                    if maze.is_wall(i - 1, j):
-                        if self._check_circle_aabb_collision(
-                            px,
-                            pz,
-                            float(i - 1) * CELL_SCALE + CELL_SCALE / 2.0,
-                            cz - half_slice,
-                            float(i) * CELL_SCALE + CELL_SCALE / 2.0,
-                            cz + half_slice,
-                        ):
-                            return True
-
-                    # 4. Top Slice Collision
-                    if maze.is_wall(i, j - 1):
-                        if self._check_circle_aabb_collision(
-                            px,
-                            pz,
-                            cx - half_slice,
-                            float(j - 1) * CELL_SCALE + CELL_SCALE / 2.0,
-                            cx + half_slice,
-                            float(j) * CELL_SCALE + CELL_SCALE / 2.0,
                         ):
                             return True
         return False
